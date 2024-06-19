@@ -34,7 +34,7 @@ class SliceTransformer(converter.Base):
     if not isinstance(target, gast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (gast.Tuple)):
       return None
 
     template = """
@@ -52,6 +52,20 @@ class SliceTransformer(converter.Base):
     if replacement is not None:
       return replacement
     return node
+  
+  def visit_Slice(self, node):
+    node = self.generic_visit(node)
+    if not isinstance(node, (gast.Slice)):
+      return node
+    # It seems that the original package has already worked with lower: and :upper.
+    # Here we only handle lower:upper.
+    if node.lower is None or node.upper is None:
+      return node
+    template = """
+      ag__.ld(jnp).s_[lower:upper]
+    """
+    return templates.replace_as_expression(
+        template, lower=node.lower, upper=node.upper)
 
   def visit_Subscript(self, node):
     node = self.generic_visit(node)
