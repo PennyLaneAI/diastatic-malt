@@ -57,6 +57,13 @@ class SliceTransformer(converter.Base):
     node = self.generic_visit(node)
     if not isinstance(node, (gast.Slice)):
       return node
+    # This guard is required or the following example will produce a wrong
+    # data shape.
+    #   @qjit(autograph=True)
+    #   def expand_by_two(x):
+    #     print(*.x.shape[1:])
+    if node.lower is None or node.upper is None:
+      return node
     template = """
       slice(lower, upper)
     """
