@@ -34,7 +34,7 @@ class SliceTransformer(converter.Base):
     if not isinstance(target, gast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple)):
+    if isinstance(s, (gast.Tuple, gast.Slice)):
       return None
 
     template = """
@@ -56,8 +56,6 @@ class SliceTransformer(converter.Base):
   def visit_Slice(self, node):
     node = self.generic_visit(node)
     if not isinstance(node, (gast.Slice)):
-      return node
-    if node.lower is None or node.upper is None:
       return node
     template = """
       slice(lower, upper)
