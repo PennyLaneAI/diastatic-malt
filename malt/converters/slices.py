@@ -34,8 +34,22 @@ class SliceTransformer(converter.Base):
     if not isinstance(target, gast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (gast.Tuple)):
       return None
+
+    if isinstance(s, (gast.Slice)):
+      if s.upper is None:
+        template = """
+          target = ag__.set_item(target, slice(lower, upper.shape[0]), item)
+        """
+        return templates.replace(
+        template, target=target.value, lower=s.lower, upper=target.value, item=value)
+      
+      template = """
+        target = ag__.set_item(target, slice(lower, upper), item)
+      """
+      return templates.replace(
+        template, target=target.value, lower=s.lower, upper=s.upper, item=value)
 
     template = """
       target = ag__.set_item(target, key, item)
@@ -52,23 +66,6 @@ class SliceTransformer(converter.Base):
     if replacement is not None:
       return replacement
     return node
-  
-  def visit_Slice(self, node):
-    node = self.generic_visit(node)
-    if not isinstance(node, (gast.Slice)):
-      return node
-    # This guard is required or the following example will produce a wrong
-    # data shape.
-    #   @qjit(autograph=True)
-    #   def expand_by_two(x):
-    #     print(*.x.shape[1:])
-    if node.lower is None or node.upper is None:
-      return node
-    template = """
-      slice(lower, upper)
-    """
-    return templates.replace_as_expression(
-        template, lower=node.lower, upper=node.upper)
 
   def visit_Subscript(self, node):
     node = self.generic_visit(node)
@@ -95,7 +92,6 @@ class SliceTransformer(converter.Base):
     """
     return templates.replace_as_expression(
         template, target=node.value, key=s, dtype=dtype)
-
 
 def transform(node, ctx):
   return SliceTransformer(ctx).visit(node)
