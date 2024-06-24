@@ -37,23 +37,18 @@ class SliceTransformer(converter.Base):
     if isinstance(s, (gast.Tuple)):
       return None
 
-    if isinstance(s, (gast.Slice)):
-      if s.upper is None:
-        template = """
-          target = ag__.set_item(target, slice(lower, upper.shape[0]), item)
-        """
-        return templates.replace(
-        template, target=target.value, lower=s.lower, upper=target.value, item=value)
-      
-      template = """
-        target = ag__.set_item(target, slice(lower, upper), item)
-      """
-      return templates.replace(
-        template, target=target.value, lower=s.lower, upper=s.upper, item=value)
-
     template = """
       target = ag__.set_item(target, key, item)
     """
+
+    if isinstance(s, (gast.Slice)):
+      template = template.replace("key", "slice(lower, upper)")
+      if s.upper is None:
+        return templates.replace(
+          template, target=target.value, lower=s.lower, upper=target.value, item=value)
+      return templates.replace(
+        template, target=target.value, lower=s.lower, upper=s.upper, item=value)
+
     return templates.replace(
         template, target=target.value, key=target.slice, item=value)
 
