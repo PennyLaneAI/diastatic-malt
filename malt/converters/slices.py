@@ -44,15 +44,9 @@ class SliceTransformer(converter.Base):
     """
 
     if isinstance(s, (gast.Slice)):
-      template = template.replace("key", "slice(lower, upper)")
-      if s.upper is None:
-        return templates.replace(
-          template, target=target.value, lower=s.lower, upper=target.value, item=value)
-      return templates.replace(
-        template, target=target.value, lower=s.lower, upper=s.upper, item=value)
-
+      template = template.replace("key", "slice(lower, upper, step)")
     return templates.replace(
-        template, target=target.value, key=target.slice, item=value)
+      template, target=target.value, key=target.slice, lower=s.lower, upper=s.upper, step=s.step, item=value)
 
   def visit_Assign(self, node):
     node = self.generic_visit(node)
