@@ -36,6 +36,7 @@ class SliceTransformer(converter.Base):
       return None
     s = target.slice
     if isinstance(s, (gast.Tuple)):
+      # multi-dimensional indices are not supported
       return None
 
     template = """
