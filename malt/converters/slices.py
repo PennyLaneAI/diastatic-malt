@@ -31,6 +31,7 @@ class SliceTransformer(converter.Base):
   """
 
   def _process_single_assignment(self, target, value):
+    # (dime10) This function has been modified to support slices.
     if not isinstance(target, gast.Subscript):
       return None
     s = target.slice
