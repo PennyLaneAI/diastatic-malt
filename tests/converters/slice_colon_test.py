@@ -43,7 +43,7 @@ class Transformer(PyToPy):
 
 
 def test_slice_start_end():
-    """Test if slice appears after transform."""
+    """Test if slice with start and end appears after transform."""
     tr = Transformer()
 
     def fn(x, y):
@@ -52,7 +52,24 @@ def test_slice_start_end():
 
     user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
     new_fn, _, _ = tr.transform(fn, user_context)
-    assert "slice" in inspect.getsource(new_fn)
+    new_fn_source = inspect.getsource(new_fn)
+    assert "slice" in new_fn_source
+    assert "(0, 10)" in new_fn_source
+
+
+def test_slice_start_end_step():
+    """Test if slice with start, end, and step appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[0:10:2] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert "slice" in new_fn_source
+    assert "(0, 10, 2)" in new_fn_source
 
 
 if __name__ == "__main__":
