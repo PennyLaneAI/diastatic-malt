@@ -53,7 +53,7 @@ def test_slice_start_end():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (0, 10,), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (0, 10, None), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[0:10]" not in new_fn_source
@@ -89,7 +89,7 @@ def test_slice_start_only():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (5,,), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (5, None, None), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[5:]" not in new_fn_source
@@ -107,7 +107,7 @@ def test_slice_end_only():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,10,), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (None, 10, None), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[:10]" not in new_fn_source
@@ -125,7 +125,7 @@ def test_slice_step_only():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,,2), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (None, None, 2), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[::2]" not in new_fn_source
@@ -143,7 +143,7 @@ def test_slice_colon_only():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (None, None, None), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[:]" not in new_fn_source
@@ -161,7 +161,7 @@ def test_slice_two_colons():
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
     assert (
-        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,,), None, fscope), ag__.ld(y))"
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (None, None, None), None, fscope), ag__.ld(y))"
         in new_fn_source
     )
     assert "[::]" not in new_fn_source
