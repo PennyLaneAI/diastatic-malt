@@ -52,8 +52,10 @@ def test_slice_start_end():
     user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
-    assert "slice" in new_fn_source
-    assert "(0, 10)" in new_fn_source
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (0, 10,), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
 
 
 def test_slice_start_end_step():
@@ -67,8 +69,95 @@ def test_slice_start_end_step():
     user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
     new_fn, _, _ = tr.transform(fn, user_context)
     new_fn_source = inspect.getsource(new_fn)
-    assert "slice" in new_fn_source
-    assert "(0, 10, 2)" in new_fn_source
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (0, 10, 2), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
+
+
+def test_slice_start_only():
+    """Test if slice with start only appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[5:] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (5,,), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
+
+
+def test_slice_end_only():
+    """Test if slice with end only appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[:10] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,10,), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
+
+
+def test_slice_step_only():
+    """Test if slice with end only appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[::2] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,,2), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
+
+
+def test_slice_colon_only():
+    """Test if slice with end only appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[:] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
+
+
+def test_slice_two_colons():
+    """Test if slice with end only appears after transform."""
+    tr = Transformer()
+
+    def fn(x, y):
+        x[::] = y
+        return x
+
+    user_context = converter.ProgramContext(TOPLEVEL_OPTIONS)
+    new_fn, _, _ = tr.transform(fn, user_context)
+    new_fn_source = inspect.getsource(new_fn)
+    assert (
+        "x = ag__.set_item(ag__.ld(x), ag__.converted_call(slice, (,,), None, fscope), ag__.ld(y))"
+        in new_fn_source
+    )
 
 
 if __name__ == "__main__":
