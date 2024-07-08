@@ -43,18 +43,22 @@ class SliceTransformer(converter.Base):
       target = ag__.set_item(target, key, item)
     """
 
+    lower, upper, step = None, None, None
+
     if isinstance(s, (gast.Slice)):
       template = template.replace("key", "slice(lower, upper, step)")
+
       # replace unused arguments with None to preserve each arguments' position.
-      if s.lower is None:
+      lower, upper, step = s.lower, s.upper, s.step
+      if lower is None:
         template = template.replace("lower", "None")
-      if s.upper is None:
+      if upper is None:
         template = template.replace("upper", "None")
-      if s.step is None:
+      if step is None:
         template = template.replace("step", "None")
 
     return templates.replace(
-      template, target=target.value, key=target.slice, lower=s.lower, upper=s.upper, step=s.step, item=value)
+      template, target=target.value, key=target.slice, lower=lower, upper=upper, step=step, item=value)
 
   def visit_Assign(self, node):
     node = self.generic_visit(node)
