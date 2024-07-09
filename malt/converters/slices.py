@@ -46,12 +46,14 @@ class SliceTransformer(converter.Base):
     lower, upper, step = None, None, None
 
     if isinstance(s, (gast.Slice)):
-      template = template.replace("key", "slice(lower, upper, step)")
+      # Replace unused arguments in the string template with "None" to preserve each arguments' position.
+      # malt.pyct.templates.replace ignores None and does not accept string so the change need to be applied here.
+      lower_str = "lower" if s.lower is not None else "None"
+      upper_str = "upper" if s.upper is not None else "None"
+      step_str = "step" if s.step is not None else "None"
+      template = template.replace("key", f"slice({lower_str}, {upper_str}, {step_str})")
 
-      # replace unused arguments with None to preserve each arguments' position.
-      lower = s.lower if s.lower is not None else "None"
-      upper = s.upper if s.upper is not None else "None"
-      step = s.step if s.step is not None else "None"
+      lower, upper, step = s.lower, s.upper, s.step
 
     return templates.replace(
       template, target=target.value, key=target.slice, lower=lower, upper=upper, step=step, item=value)
