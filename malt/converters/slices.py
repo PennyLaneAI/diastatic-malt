@@ -49,13 +49,9 @@ class SliceTransformer(converter.Base):
       template = template.replace("key", "slice(lower, upper, step)")
 
       # replace unused arguments with None to preserve each arguments' position.
-      lower, upper, step = s.lower, s.upper, s.step
-      if lower is None:
-        template = template.replace("lower", "None")
-      if upper is None:
-        template = template.replace("upper", "None")
-      if step is None:
-        template = template.replace("step", "None")
+      lower = s.lower if s.lower is not None else "None"
+      upper = s.upper if s.upper is not None else "None"
+      step = s.step if s.step is not None else "None"
 
     return templates.replace(
       template, target=target.value, key=target.slice, lower=lower, upper=upper, step=step, item=value)
