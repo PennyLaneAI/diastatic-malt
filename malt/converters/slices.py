@@ -31,17 +31,32 @@ class SliceTransformer(converter.Base):
   """
 
   def _process_single_assignment(self, target, value):
+    # (dime10) This function has been modified to support slices.
     if not isinstance(target, gast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (gast.Tuple)):
+      # multi-dimensional indices are not supported
       return None
 
     template = """
       target = ag__.set_item(target, key, item)
     """
+
+    lower, upper, step = None, None, None
+
+    if isinstance(s, (gast.Slice)):
+      # Replace unused arguments in the string template with "None" to preserve each arguments' position.
+      # malt.pyct.templates.replace ignores None and does not accept string so the change need to be applied here.
+      lower_str = "lower" if s.lower is not None else "None"
+      upper_str = "upper" if s.upper is not None else "None"
+      step_str = "step" if s.step is not None else "None"
+      template = template.replace("key", f"slice({lower_str}, {upper_str}, {step_str})")
+
+      lower, upper, step = s.lower, s.upper, s.step
+
     return templates.replace(
-        template, target=target.value, key=target.slice, item=value)
+      template, target=target.value, key=target.slice, lower=lower, upper=upper, step=step, item=value)
 
   def visit_Assign(self, node):
     node = self.generic_visit(node)
@@ -78,7 +93,6 @@ class SliceTransformer(converter.Base):
     """
     return templates.replace_as_expression(
         template, target=node.value, key=s, dtype=dtype)
-
 
 def transform(node, ctx):
   return SliceTransformer(ctx).visit(node)
