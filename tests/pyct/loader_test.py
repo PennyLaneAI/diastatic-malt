@@ -18,7 +18,7 @@
 import os
 import textwrap
 
-import gast
+import ast
 
 from malt.pyct import ast_util
 from malt.pyct import loader
@@ -31,7 +31,7 @@ from tensorflow.python.util import tf_inspect
 class LoaderTest(test.TestCase):
 
   def assertAstMatches(self, actual_node, expected_node_src):
-    expected_node = gast.parse(expected_node_src).body[0]
+    expected_node = ast.parse(expected_node_src).body[0]
 
     msg = 'AST did not match expected:\n{}\nActual:\n{}'.format(
         pretty_printer.fmt(expected_node),
@@ -56,12 +56,11 @@ class LoaderTest(test.TestCase):
     self.assertAstMatches(node, expected_node_src)
 
   def test_load_ast(self):
-    node = gast.FunctionDef(
+    node = ast.FunctionDef(
         name='f',
-        args=gast.arguments(
+        args=ast.arguments(
             args=[
-                gast.Name(
-                    'a', ctx=gast.Param(), annotation=None, type_comment=None)
+                ast.arg(arg='a', annotation=None)
             ],
             posonlyargs=[],
             vararg=None,
@@ -70,15 +69,11 @@ class LoaderTest(test.TestCase):
             kwarg=None,
             defaults=[]),
         body=[
-            gast.Return(
-                gast.BinOp(
-                    op=gast.Add(),
-                    left=gast.Name(
-                        'a',
-                        ctx=gast.Load(),
-                        annotation=None,
-                        type_comment=None),
-                    right=gast.Constant(1, kind=None)))
+            ast.Return(
+                ast.BinOp(
+                    op=ast.Add(),
+                    left=ast.Name('a', ctx=ast.Load()),
+                    right=ast.Constant(1)))
         ],
         decorator_list=[],
         returns=None,

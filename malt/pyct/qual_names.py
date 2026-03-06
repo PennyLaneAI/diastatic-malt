@@ -24,7 +24,7 @@ refers to scopes.
 
 import collections
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import parser
@@ -197,30 +197,34 @@ class QN(object):
     """AST representation."""
     # The caller must adjust the context appropriately.
     if self.has_subscript():
-      return gast.Subscript(
+      return ast.Subscript(
           value=self.parent.ast(),
           slice=self.qn[-1].ast(),
           ctx=CallerMustSetThis)
     if self.has_attr():
-      return gast.Attribute(
+      return ast.Attribute(
           value=self.parent.ast(), attr=self.qn[-1], ctx=CallerMustSetThis)
 
     base = self.qn[0]
     if isinstance(base, str):
-      return gast.Name(
-          base, ctx=CallerMustSetThis, annotation=None, type_comment=None)
+      return ast.Name(base, ctx=CallerMustSetThis)
     elif isinstance(base, Literal):
-      return gast.Constant(base.value, kind=None)
+      return ast.Constant(base.value)
     else:
       assert False, ('the constructor should prevent types other than '
                      'str and Literal')
 
 
-class QnResolver(gast.NodeTransformer):
+class QnResolver(ast.NodeTransformer):
   """Annotates nodes with QN information.
 
   Note: Not using NodeAnnos to avoid circular dependencies.
   """
+
+  def visit_arg(self, node):
+    node = self.generic_visit(node)
+    anno.setanno(node, anno.Basic.QN, QN(node.arg))
+    return node
 
   def visit_Name(self, node):
     node = self.generic_visit(node)
@@ -238,11 +242,11 @@ class QnResolver(gast.NodeTransformer):
     # TODO(mdan): This may no longer apply if we overload getitem.
     node = self.generic_visit(node)
     s = node.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (ast.Tuple, ast.Slice)):
       # TODO(mdan): Support range and multi-dimensional indices.
       # Continuing silently because some demos use these.
       return node
-    if isinstance(s, gast.Constant) and s.value != Ellipsis:
+    if isinstance(s, ast.Constant) and s.value != Ellipsis:
       subscript = QN(Literal(s.value))
     else:
       # The index may be an expression, case in which a name doesn't make sense.

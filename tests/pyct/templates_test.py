@@ -17,7 +17,7 @@
 import imp
 
 from absl.testing import parameterized
-import gast
+import ast
 
 from malt.pyct import loader
 from malt.pyct import parser
@@ -26,7 +26,7 @@ from malt.pyct import templates
 from tensorflow.python.platform import test
 
 
-class _CtxClearer(gast.NodeTransformer):
+class _CtxClearer(ast.NodeTransformer):
 
   def visit(self, node):
     super(_CtxClearer, self).visit(node)
@@ -41,7 +41,7 @@ def _parse_with_unset_ctx(expr_source):
   return ast_node
 
 
-class _CtxChecker(gast.NodeTransformer):
+class _CtxChecker(ast.NodeTransformer):
 
   def __init__(self, test_instance, expected_ctx):
     self.at_top_level = True
@@ -53,14 +53,14 @@ class _CtxChecker(gast.NodeTransformer):
       self.test_instance.assertIsInstance(node.ctx, self.expected_ctx)
     if self.at_top_level:
       self.at_top_level = False
-      self.expected_ctx = gast.Load
+      self.expected_ctx = ast.Load
     return super(_CtxChecker, self).visit(node)
 
 
 class TemplatesTest(test.TestCase, parameterized.TestCase):
 
   def assertExpectedCtxSet(self, node, ctx):
-    """Assert that node has ctx=ctx at top and ctx=gast.Load everywhere else."""
+    """Assert that node has ctx=ctx at top and ctx=ast.Load everywhere else."""
     checker = _CtxChecker(self, ctx)
     checker.visit(node)
 
@@ -112,21 +112,14 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     node = templates.replace(
         template,
         block=[
-            gast.Assign(
-                [
-                    gast.Name(
-                        'a',
-                        ctx=ShouldBeReplaced,
-                        annotation=None,
-                        type_comment=None)
+            ast.Assign(
+                targets=[
+                    ast.Name('a', ctx=ShouldBeReplaced)
                 ],
-                gast.BinOp(
-                    gast.Name(
-                        'a',
-                        ctx=ShouldBeReplaced,
-                        annotation=None,
-                        type_comment=None), gast.Add(),
-                    gast.Constant(1, kind=None)),
+                value=ast.BinOp(
+                    ast.Name('a', ctx=ShouldBeReplaced),
+                    ast.Add(),
+                    ast.Constant(1)),
             ),
         ] * 2)[0]
     result, _, _ = loader.load_ast(node)
@@ -156,9 +149,9 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     node = templates.replace(
         template,
         foo=parser.parse_expression('a.b.c'))[0]
-    self.assertIsInstance(node.body[0].targets[0].ctx, gast.Store)
-    self.assertIsInstance(node.body[0].targets[0].value.ctx, gast.Load)
-    self.assertIsInstance(node.body[0].targets[0].value.value.ctx, gast.Load)
+    self.assertIsInstance(node.body[0].targets[0].ctx, ast.Store)
+    self.assertIsInstance(node.body[0].targets[0].value.ctx, ast.Load)
+    self.assertIsInstance(node.body[0].targets[0].value.value.ctx, ast.Load)
 
   def test_replace_list_context(self):
     template = """
@@ -167,9 +160,9 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     """
 
     node = templates.replace(template, foo=parser.parse_expression('[a, b]'))[0]
-    self.assertIsInstance(node.body[0].targets[0].ctx, gast.Store)
-    self.assertIsInstance(node.body[0].targets[0].elts[0].ctx, gast.Store)
-    self.assertIsInstance(node.body[0].targets[0].elts[1].ctx, gast.Store)
+    self.assertIsInstance(node.body[0].targets[0].ctx, ast.Store)
+    self.assertIsInstance(node.body[0].targets[0].elts[0].ctx, ast.Store)
+    self.assertIsInstance(node.body[0].targets[0].elts[1].ctx, ast.Store)
 
   def test_replace_tuple_context(self):
     template = """
@@ -178,9 +171,9 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     """
 
     node = templates.replace(template, foo=parser.parse_expression('(a, b)'))[0]
-    self.assertIsInstance(node.body[0].targets[0].ctx, gast.Store)
-    self.assertIsInstance(node.body[0].targets[0].elts[0].ctx, gast.Store)
-    self.assertIsInstance(node.body[0].targets[0].elts[1].ctx, gast.Store)
+    self.assertIsInstance(node.body[0].targets[0].ctx, ast.Store)
+    self.assertIsInstance(node.body[0].targets[0].elts[0].ctx, ast.Store)
+    self.assertIsInstance(node.body[0].targets[0].elts[1].ctx, ast.Store)
 
   def test_replace_expression_context(self):
     template = """
@@ -190,8 +183,8 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
 
     node = templates.replace(
         template, foo=parser.parse_expression('a + 2 * b / -c'))[0]
-    self.assertIsInstance(node.body[0].left.ctx, gast.Load)
-    self.assertIsInstance(node.body[0].right.left.right.ctx, gast.Load)
+    self.assertIsInstance(node.body[0].left.ctx, ast.Load)
+    self.assertIsInstance(node.body[0].right.left.right.ctx, ast.Load)
 
   def test_replace_complex_context(self):
     template = """
@@ -201,11 +194,11 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
 
     node = templates.replace(
         template, foo=parser.parse_expression('bar(([a, b],)).baz'))[0]
-    self.assertIsInstance(node.body[0].targets[0].ctx, gast.Store)
+    self.assertIsInstance(node.body[0].targets[0].ctx, ast.Store)
     function_call_arg = node.body[0].targets[0].value.args[0]
-    self.assertIsInstance(function_call_arg.elts[0].ctx, gast.Load)
-    self.assertIsInstance(function_call_arg.elts[0].elts[0].ctx, gast.Load)
-    self.assertIsInstance(function_call_arg.elts[0].elts[1].ctx, gast.Load)
+    self.assertIsInstance(function_call_arg.elts[0].ctx, ast.Load)
+    self.assertIsInstance(function_call_arg.elts[0].elts[0].ctx, ast.Load)
+    self.assertIsInstance(function_call_arg.elts[0].elts[1].ctx, ast.Load)
 
   def test_replace_index(self):
     template = """
@@ -216,8 +209,8 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     node = templates.replace(
         template, foo=parser.parse_expression('foo(a[b]).bar'))[0]
     function_call_arg = node.body[0].targets[0].value.args[0]
-    self.assertIsInstance(function_call_arg.ctx, gast.Load)
-    self.assertIsInstance(function_call_arg.slice.ctx, gast.Load)
+    self.assertIsInstance(function_call_arg.ctx, ast.Load)
+    self.assertIsInstance(function_call_arg.slice.ctx, ast.Load)
 
   def test_replace_call_keyword(self):
     template = """
@@ -269,7 +262,7 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     """
 
     node = templates.replace_as_expression(template, foo='bar', a='baz')
-    self.assertIsInstance(node, gast.Call)
+    self.assertIsInstance(node, ast.Call)
     self.assertEqual(node.func.id, 'bar')
     self.assertEqual(node.args[0].id, 'baz')
 
@@ -295,8 +288,8 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     source = parser.parse_expression('bar(*[i for i in range(j)])')
     node = templates.replace(template, func=source.func, args=source.args)
     arg_node = node[0].value.args[1].value
-    self.assertIsInstance(arg_node.generators[0].target.ctx, gast.Store)
-    self.assertIsInstance(arg_node.elt.ctx, gast.Load)
+    self.assertIsInstance(arg_node.generators[0].target.ctx, ast.Store)
+    self.assertIsInstance(arg_node.elt.ctx, ast.Load)
 
   def test_lambda_in_function_call(self):
     template = """
@@ -305,8 +298,8 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     source = parser.parse_expression('[lambda i: i]')
     node = templates.replace(template, arg=source)
     lambda_arg = node[0].value.args[0].elts[0]
-    self.assertIsInstance(lambda_arg.args.args[0].ctx, gast.Param)
-    self.assertIsInstance(lambda_arg.body.ctx, gast.Load)
+    self.assertIsInstance(lambda_arg.args.args[0], ast.arg)
+    self.assertIsInstance(lambda_arg.body.ctx, ast.Load)
 
   def test_replace_name_with_subscript(self):
     template = """
@@ -315,8 +308,8 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     replacement = qn.QN(qn.QN('dictionary'), subscript=qn.QN('key'))
 
     node = templates.replace(template, foo=replacement)[0].targets[0]
-    self.assertIsInstance(node.ctx, gast.Store)
-    self.assertIsInstance(node.value.ctx, gast.Load)
+    self.assertIsInstance(node.ctx, ast.Store)
+    self.assertIsInstance(node.value.ctx, ast.Load)
 
   @parameterized.named_parameters([
       ('mixed_attr_subscript', 'a.b["c"]'),
@@ -329,10 +322,10 @@ class TemplatesTest(test.TestCase, parameterized.TestCase):
     replacement = _parse_with_unset_ctx(expression_source)
 
     target_node = templates.replace(template, foo=replacement)[0].targets[0]
-    self.assertExpectedCtxSet(target_node, gast.Store)
+    self.assertExpectedCtxSet(target_node, ast.Store)
 
     value_node = templates.replace(template, bar=replacement)[0].value
-    self.assertExpectedCtxSet(value_node, gast.Load)
+    self.assertExpectedCtxSet(value_node, ast.Load)
 
 if __name__ == '__main__':
   test.main()

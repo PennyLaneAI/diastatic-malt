@@ -25,9 +25,8 @@ documented at https://greentreesnakes.readthedocs.io/en/latest/.
 
 import collections
 
-import gast
+import ast
 
-from malt.pyct import gast_util
 from malt.pyct import templates
 from malt.pyct import transformer
 
@@ -113,22 +112,14 @@ class AnfTransformer(transformer.Base):
       # These could be pulled out, but are generally considered to already be in
       # A-normal form.  Thus they are left in by default, but could be pulled
       # out if the configuration calls for it.
-      if gast_util.GAST2:
-        literal_node_types = (
-            gast.Num, gast.Str, gast.Bytes, gast.NameConstant,
-            gast.Name  # Name is here to cover True, False, and None in Python 2
-        )
-      elif gast_util.GAST3:
-        literal_node_types = (
-            gast.Constant,
-            gast.Name  # Name is here to cover True, False, and None in Python 2
-        )
-      else:
-        assert False
+      literal_node_types = (
+          ast.Constant,
+          ast.Name  # Name is here to cover True, False, and None
+      )
 
       self._overrides = [
           (ASTEdgePattern(ANY, ANY, literal_node_types), LEAVE),
-          (ASTEdgePattern(ANY, ANY, gast.expr), REPLACE)]
+          (ASTEdgePattern(ANY, ANY, ast.expr), REPLACE)]
     else:
       self._overrides = config
     self._gensym = DummyGensym()
@@ -186,14 +177,14 @@ class AnfTransformer(transformer.Base):
     if isinstance(node, list):
       # If something's field was actually a list, e.g., variadic arguments.
       return [self._ensure_node_in_anf(parent, field, n) for n in node]
-    if isinstance(node, gast.keyword):
+    if isinstance(node, ast.keyword):
       node.value = self._ensure_node_in_anf(parent, field, node.value)
       return node
-    if isinstance(node, (gast.Starred, gast.withitem, gast.slice)):
+    if isinstance(node, (ast.Starred, ast.withitem, ast.slice)):
       # These nodes aren't really extractable in their own right, but their
       # subnodes might be.  Propagate the parent and field name to the child
       # nodes, instead of querying the configuration for children of, e.g.,
-      # gast.Starred.
+      # ast.Starred.
       return self._ensure_fields_in_anf(node, parent, field)
     if self._should_transform(parent, field, node):
       return self._do_transform_node(node)
@@ -465,19 +456,19 @@ class AnfTransformer(transformer.Base):
 
   def visit_List(self, node):
     node = self.generic_visit(node)
-    if not isinstance(node.ctx, gast.Store):
+    if not isinstance(node.ctx, ast.Store):
       self._ensure_fields_in_anf(node)
     return node
 
   def visit_Tuple(self, node):
     node = self.generic_visit(node)
-    if not isinstance(node.ctx, gast.Store):
+    if not isinstance(node.ctx, ast.Store):
       self._ensure_fields_in_anf(node)
     return node
 
 
 def _is_py2_name_constant(node):
-  return isinstance(node, gast.Name) and node.id in ['True', 'False', 'None']
+  return isinstance(node, ast.Name) and node.id in ['True', 'False', 'None']
 
 
 def _is_trivial(node):
@@ -497,45 +488,45 @@ def _is_trivial(node):
   """
   trivial_node_types = (
       # Variable names
-      gast.Name,
+      ast.Name,
       # Non-nodes that show up as AST fields
       bool,
       str,
       # Binary operators
-      gast.Add,
-      gast.Sub,
-      gast.Mult,
-      gast.Div,
-      gast.Mod,
-      gast.Pow,
-      gast.LShift,
-      gast.RShift,
-      gast.BitOr,
-      gast.BitXor,
-      gast.BitAnd,
-      gast.FloorDiv,
+      ast.Add,
+      ast.Sub,
+      ast.Mult,
+      ast.Div,
+      ast.Mod,
+      ast.Pow,
+      ast.LShift,
+      ast.RShift,
+      ast.BitOr,
+      ast.BitXor,
+      ast.BitAnd,
+      ast.FloorDiv,
       # Unary operators
-      gast.Invert,
-      gast.Not,
-      gast.UAdd,
-      gast.USub,
+      ast.Invert,
+      ast.Not,
+      ast.UAdd,
+      ast.USub,
       # Comparison operators
-      gast.Eq,
-      gast.NotEq,
-      gast.Lt,
-      gast.LtE,
-      gast.Gt,
-      gast.GtE,
-      gast.Is,
-      gast.IsNot,
-      gast.In,
-      gast.NotIn,
-      # Other leaf nodes that don't make sense standalone.
-      gast.expr_context,
+      ast.Eq,
+      ast.NotEq,
+      ast.Lt,
+      ast.LtE,
+      ast.Gt,
+      ast.GtE,
+      ast.Is,
+      ast.IsNot,
+      ast.In,
+      ast.NotIn,
+      # Other leaf nodes that don't make sense standalone (expr context).
+      ast.expr_context,
   )
   if isinstance(node, trivial_node_types) and not _is_py2_name_constant(node):
     return True
-  if gast_util.is_ellipsis(node):
+  if isinstance(node, ast.Constant) and node.value == Ellipsis:
     return True
 
   return False
@@ -593,22 +584,21 @@ def transform(node, ctx, config=None):
 
   For example, the configuration
   ```python
-  [(anf.ASTEdgePattern(anf.ANY, anf.ANY, gast.expr), anf.REPLACE)]
+  [(anf.ASTEdgePattern(anf.ANY, anf.ANY, ast.expr), anf.REPLACE)]
   ```
   gives explicit fresh names to all expressions regardless of context (except as
   outlined above), whereas
   ```python
-  [(anf.ASTEdgePattern(gast.If, "test", anf.ANY), anf.REPLACE)]
+  [(anf.ASTEdgePattern(ast.If, "test", anf.ANY), anf.REPLACE)]
   ```
   only transforms the conditionals of `if` statements (but not, e.g., `while`).
 
   If no configuration is supplied, the default behavior is to transform all
   expressions except literal constants, which is defined as a configuration as
   ```python
-  # For Python 3, and gast library versions before 0.3
-  literals = (gast.Num, gast.Str, gast.Bytes, gast.NameConstant)
+  literals = (ast.Constant, ast.Name)
   [(anf.ASTEdgePattern(anf.ANY, anf.ANY, literals), anf.LEAVE),
-   (anf.ASTEdgePattern(anf.ANY, anf.ANY, gast.expr), anf.REPLACE)]
+   (anf.ASTEdgePattern(anf.ANY, anf.ANY, ast.expr), anf.REPLACE)]
   ```
 
   Args:

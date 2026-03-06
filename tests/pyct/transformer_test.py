@@ -15,7 +15,7 @@
 """Tests for templates module."""
 
 import re
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import origin_info
@@ -153,10 +153,9 @@ class TransformerTest(test.TestCase):
     class TestTransformer(transformer.Base):
 
       def _process_body_item(self, node):
-        if isinstance(node, gast.Assign) and (node.value.id == 'y'):
-          if_node = gast.If(
-              gast.Name(
-                  'x', ctx=gast.Load(), annotation=None, type_comment=None),
+        if isinstance(node, ast.Assign) and (node.value.id == 'y'):
+          if_node = ast.If(
+              ast.Name('x', ctx=ast.Load()),
               [node], [])
           return if_node, if_node.body
         return node, None
@@ -177,10 +176,10 @@ class TransformerTest(test.TestCase):
     node = tr.visit(node)
 
     self.assertEqual(len(node.body), 2)
-    self.assertIsInstance(node.body[0], gast.Assign)
-    self.assertIsInstance(node.body[1], gast.If)
-    self.assertIsInstance(node.body[1].body[0], gast.Assign)
-    self.assertIsInstance(node.body[1].body[1], gast.Return)
+    self.assertIsInstance(node.body[0], ast.Assign)
+    self.assertIsInstance(node.body[1], ast.If)
+    self.assertIsInstance(node.body[1].body[0], ast.Assign)
+    self.assertIsInstance(node.body[1].body[1], ast.Return)
 
   def test_robust_error_on_list_visit(self):
 
@@ -248,7 +247,7 @@ class TransformerTest(test.TestCase):
     class TestTransformer(transformer.Base):
 
       def visit_If(self, node):
-        return gast.Pass()
+        return ast.Pass()
 
     tr = TestTransformer(self._simple_context())
 

@@ -24,31 +24,12 @@ import io
 import linecache
 import re
 import sys
-import textwrap
 import tokenize
 
-import astunparse
-import gast
+from malt.pyct import errors, inspect_utils
 
-from malt.pyct import errors
-from malt.pyct import inspect_utils
-
-
-PY2_PREAMBLE = textwrap.dedent("""
-""")
-PY3_PREAMBLE = ''
-MAX_SIZE = 0
-
-if sys.version_info >= (3, 9):
-  astunparse = ast
-
-if sys.version_info >= (3,):
-  STANDARD_PREAMBLE = PY3_PREAMBLE
-  MAX_SIZE = sys.maxsize
-else:
-  STANDARD_PREAMBLE = PY2_PREAMBLE
-  MAX_SIZE = sys.maxint
-
+STANDARD_PREAMBLE = ''
+MAX_SIZE = sys.maxsize
 STANDARD_PREAMBLE_LEN = STANDARD_PREAMBLE.count('__future__')
 
 
@@ -138,7 +119,7 @@ def parse_entity(entity, future_features):
       https://docs.python.org/2/reference/simple_stmts.html#future
 
   Returns:
-    gast.AST, Text: the parsed AST node; the source code that was parsed to
+    ast.AST, Text: the parsed AST node; the source code that was parsed to
     generate the AST (including any prefixes that this function may have added).
   """
   if inspect_utils.islambda(entity):
@@ -166,7 +147,7 @@ def parse_entity(entity, future_features):
 
 def _without_context(node, lines, minl, maxl):
   """Returns a clean node and source code without indenting and context."""
-  for n in gast.walk(node):
+  for n in ast.walk(node):
     lineno = getattr(n, 'lineno', None)
     if lineno is not None:
       n.lineno = lineno - minl
@@ -199,17 +180,16 @@ def _without_context(node, lines, minl, maxl):
 
 
 def _arg_name(node):
+  """Return the parameter name from an ast.arg. node must be None or ast.arg."""
   if node is None:
     return None
-  if isinstance(node, gast.Name):
-    return node.id
-  assert isinstance(node, str)
-  return node
+  if isinstance(node, ast.arg):
+    return node.arg
+  raise TypeError('expected None or ast.arg, got %s' % type(node).__name__)
 
 
 def _node_matches_argspec(node, func):
   """Returns True is node fits the argspec of func."""
-  # TODO(mdan): Use just inspect once support for Python 2 is dropped.
   # (dime10) replacement for tf_inspect.getfullargspec
   arg_spec = inspect.getfullargspec(func)
 
@@ -237,7 +217,7 @@ def _parse_lambda(lam):
     lam: types.LambdaType, Python function/method/class
 
   Returns:
-    gast.AST, Text: the parsed AST node; the source code that was parsed to
+    ast.AST, Text: the parsed AST node; the source code that was parsed to
     generate the AST (including any prefixes that this function may have added).
   """
   # TODO(mdan): Use a fast path if the definition is not multi-line.
@@ -274,13 +254,13 @@ def _parse_lambda(lam):
   lambda_nodes = []
   for node in search_nodes:
     lambda_nodes.extend(
-        n for n in gast.walk(node) if isinstance(n, gast.Lambda))
+        n for n in ast.walk(node) if isinstance(n, ast.Lambda))
 
   # Filter down to lambda nodes which span our actual lambda.
   candidates = []
   for ln in lambda_nodes:
     minl, maxl = MAX_SIZE, 0
-    for n in gast.walk(ln):
+    for n in ast.walk(ln):
       minl = min(minl, getattr(n, 'lineno', minl))
       lineno = getattr(n, 'lineno', maxl)
       end_lineno = getattr(n, 'end_lineno', None)
@@ -333,7 +313,7 @@ def parse(src, preamble_len=0, single_node=True):
   Returns:
     ast.AST
   """
-  module_node = gast.parse(src)
+  module_node = ast.parse(src)
   nodes = module_node.body
   if preamble_len:
     nodes = nodes[preamble_len:]
@@ -350,14 +330,14 @@ def parse_expression(src):
   Args:
     src: A piece of code that represents a single Python expression
   Returns:
-    A gast.AST object.
+    An ast.AST object.
   Raises:
     ValueError: if src does not consist of a single Expression.
   """
   src = STANDARD_PREAMBLE + src.strip()
   node = parse(src, preamble_len=STANDARD_PREAMBLE_LEN, single_node=True)
   if __debug__:
-    if not isinstance(node, gast.Expr):
+    if not isinstance(node, ast.Expr):
       raise ValueError(
           'expected exactly one node of type Expr, got {}'.format(node))
   return node.value
@@ -377,7 +357,7 @@ def unparse(node, indentation=None, include_encoding_marker=True):
     code: The source code generated from the AST object
     source_mapping: A mapping between the user and AutoGraph generated code.
   """
-  del indentation  # astunparse doesn't allow configuring it.
+  del indentation  # Unused; kept for API compatibility.
   if not isinstance(node, (list, tuple)):
     node = (node,)
 
@@ -385,13 +365,7 @@ def unparse(node, indentation=None, include_encoding_marker=True):
   if include_encoding_marker:
     codes.append('# coding=utf-8')
   for n in node:
-    if isinstance(n, gast.AST):
-      ast_n = gast.gast_to_ast(n)
-    else:
-      ast_n = n
-
-    if astunparse is ast:
-      ast.fix_missing_locations(ast_n)  # Only ast needs to call this.
-    codes.append(astunparse.unparse(ast_n).strip())
+    ast.fix_missing_locations(n)
+    codes.append(ast.unparse(n).strip())
 
   return '\n'.join(codes)

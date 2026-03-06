@@ -21,7 +21,7 @@ that is the caller's responsibility.
 Requires function_scopes.
 """
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import anno
@@ -61,7 +61,7 @@ class _ArgTemplateBuilder(object):
   def _consume_args(self):
     if self._arg_accumulator:
       self._argspec.append(
-          gast.Tuple(elts=self._arg_accumulator, ctx=gast.Load()))
+          ast.Tuple(elts=self._arg_accumulator, ctx=ast.Load()))
       self._arg_accumulator = []
 
   def add_arg(self, a):
@@ -70,11 +70,10 @@ class _ArgTemplateBuilder(object):
   def add_stararg(self, a):
     self._consume_args()
     self._argspec.append(
-        gast.Call(
-            gast.Name(
-                'tuple', ctx=gast.Load(), annotation=None, type_comment=None),
+        ast.Call(
+            ast.Name('tuple', ctx=ast.Load()),
             args=[a],
-            keywords=()))
+            keywords=[]))
 
   def finalize(self):
     self._consume_args()
@@ -85,9 +84,9 @@ class _ArgTemplateBuilder(object):
     if self._argspec:
       result = self._argspec[0]
       for i in range(1, len(self._argspec)):
-        result = gast.BinOp(result, gast.Add(), self._argspec[i])
+        result = ast.BinOp(result, ast.Add(), self._argspec[i])
       return result
-    return gast.Tuple([], gast.Load())
+    return ast.Tuple(elts=[], ctx=ast.Load())
 
 
 class CallTreeTransformer(converter.Base):
@@ -136,7 +135,7 @@ class CallTreeTransformer(converter.Base):
     #   tuple(a, b, *args)
     builder = _ArgTemplateBuilder()
     for a in node.args:
-      if isinstance(a, gast.Starred):
+      if isinstance(a, ast.Starred):
         builder.add_stararg(a.value)
       else:
         builder.add_arg(a)
@@ -146,9 +145,8 @@ class CallTreeTransformer(converter.Base):
   def _kwargs_to_dict(self, node):
     """Ties together all keyword and **kwarg arguments in a single dict."""
     if node.keywords:
-      return gast.Call(
-          gast.Name(
-              'dict', ctx=gast.Load(), annotation=None, type_comment=None),
+      return ast.Call(
+          ast.Name('dict', ctx=ast.Load()),
           args=(),
           keywords=node.keywords)
     else:

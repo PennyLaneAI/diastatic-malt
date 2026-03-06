@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converter for logical expressions, e.g. `a and b -> tf.logical_and(a, b)`."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import parser
@@ -32,14 +32,14 @@ SAFE_BOOLEAN_OPERAND = 'SAFE_BOOLEAN_OPERAND'
 
 
 LOGICAL_OPERATORS = {
-    gast.And: 'ag__.and_',
-    gast.Not: 'ag__.not_',
-    gast.Or: 'ag__.or_',
+    ast.And: 'ag__.and_',
+    ast.Not: 'ag__.not_',
+    ast.Or: 'ag__.or_',
 }
 
 EQUALITY_OPERATORS = {
-    gast.Eq: 'ag__.eq',
-    gast.NotEq: 'ag__.not_eq',
+    ast.Eq: 'ag__.eq',
+    ast.NotEq: 'ag__.not_eq',
 }
 
 

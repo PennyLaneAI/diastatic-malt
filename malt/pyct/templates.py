@@ -21,15 +21,10 @@ Adapted from Tangent.
 import ast
 import textwrap
 
-import gast
-
-from malt.pyct import anno
-from malt.pyct import ast_util
-from malt.pyct import parser
-from malt.pyct import qual_names
+from malt.pyct import anno, ast_util, parser, qual_names
 
 
-class ContextAdjuster(gast.NodeTransformer):
+class ContextAdjuster(ast.NodeTransformer):
   """Adjusts the ctx field of nodes to ensure consistency.
 
   This transformer can change the ctx fields of a variable, tuple and other
@@ -54,7 +49,7 @@ class ContextAdjuster(gast.NodeTransformer):
 
   def visit_Attribute(self, node):
     self._apply_override(node)
-    self._ctx_override = gast.Load
+    self._ctx_override = ast.Load
     node = self.generic_visit(node)
     return node
 
@@ -85,7 +80,7 @@ class ContextAdjuster(gast.NodeTransformer):
 
   def visit_Subscript(self, node):
     self._apply_override(node)
-    self._ctx_override = gast.Load
+    self._ctx_override = ast.Load
     node.value = self.visit(node.value)
     return self.generic_visit(node)
 
@@ -102,7 +97,7 @@ class ContextAdjuster(gast.NodeTransformer):
     return self.generic_visit(node)
 
 
-class ReplaceTransformer(gast.NodeTransformer):
+class ReplaceTransformer(ast.NodeTransformer):
   """Replace AST nodes."""
 
   def __init__(self, replacements):
@@ -135,7 +130,7 @@ class ReplaceTransformer(gast.NodeTransformer):
     repl = self.replacements[key]
 
     new_nodes = ast_util.copy_clean(repl, preserve_annos=self.preserved_annos)
-    if isinstance(new_nodes, gast.AST):
+    if isinstance(new_nodes, ast.AST):
       new_nodes = [new_nodes]
 
     return new_nodes
@@ -153,10 +148,10 @@ class ReplaceTransformer(gast.NodeTransformer):
       return self.generic_visit(node)
 
     repl = self._prepare_replacement(node, node.arg)
-    if isinstance(repl, gast.keyword):
+    if isinstance(repl, ast.keyword):
       return repl
     elif (repl and isinstance(repl, (list, tuple)) and
-          all(isinstance(r, gast.keyword) for r in repl)):
+          all(isinstance(r, ast.keyword) for r in repl)):
       return repl
     # TODO(mdan): We may allow replacing with a string as well.
     # For example, if one wanted to replace foo with bar in foo=baz, then
@@ -166,13 +161,26 @@ class ReplaceTransformer(gast.NodeTransformer):
         'non-empty list of keywords. Found: {} for keyword {}'.format(
             repl, node.arg))
 
+  def visit_arg(self, node):
+    if node.arg not in self.replacements:
+      return node
+    repl = self.replacements[node.arg]
+    # Replacements may be ast.Name (e.g. from _convert_to_ast for a string);
+    # arguments.args must contain ast.arg, not Name, for reparsed AST to match.
+    if isinstance(repl, ast.Name):
+      return ast.arg(arg=repl.id, annotation=getattr(repl, 'annotation', None))
+    if isinstance(repl, list):
+      return [ast.arg(arg=n.id, annotation=getattr(n, 'annotation', None))
+              if isinstance(n, ast.Name) else n for n in repl]
+    return repl
+
   def visit_FunctionDef(self, node):
     node = self.generic_visit(node)
     if node.name not in self.replacements:
       return node
 
     repl = self.replacements[node.name]
-    if not isinstance(repl, (gast.Name, ast.Name)):
+    if not isinstance(repl, ast.Name):
       raise ValueError(
           'a function name can only be replaced by a Name node. Found: %s' %
           repl)
@@ -185,7 +193,7 @@ class ReplaceTransformer(gast.NodeTransformer):
       return node
 
     repl = self.replacements[node.attr]
-    if not isinstance(repl, gast.Name):
+    if not isinstance(repl, ast.Name):
       raise ValueError(
           'An attribute can only be replaced by a Name node. Found: %s' % repl)
     node.attr = repl.id
@@ -218,7 +226,7 @@ def _convert_to_ast(n):
   # unknown. ctx must be filled in according to the template being used.
   # See ReplaceTransformer.visit_Name.
   if isinstance(n, str):
-    return gast.Name(id=n, ctx=None, annotation=None, type_comment=None)
+    return ast.Name(id=n, ctx=None)
   if isinstance(n, qual_names.QN):
     return n.ast()
   if isinstance(n, list):
@@ -281,9 +289,9 @@ def replace_as_expression(template, **replacements):
         'single expression expected; for more general templates use replace')
   node, = replacement
 
-  if isinstance(node, gast.Expr):
+  if isinstance(node, ast.Expr):
     return node.value
-  elif isinstance(node, gast.Name):
+  elif isinstance(node, ast.Name):
     return node
 
   raise ValueError(

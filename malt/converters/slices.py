@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converter for slice operations."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.lang import directives
@@ -32,10 +32,10 @@ class SliceTransformer(converter.Base):
 
   def _process_single_assignment(self, target, value):
     # (dime10) This function has been modified to support slices.
-    if not isinstance(target, gast.Subscript):
+    if not isinstance(target, ast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple)):
+    if isinstance(s, (ast.Tuple)):
       # multi-dimensional indices are not supported
       return None
 
@@ -45,7 +45,7 @@ class SliceTransformer(converter.Base):
 
     lower, upper, step = None, None, None
 
-    if isinstance(s, (gast.Slice)):
+    if isinstance(s, (ast.Slice)):
       # Replace unused arguments in the string template with "None" to preserve each arguments' position.
       # malt.pyct.templates.replace ignores None and does not accept string so the change need to be applied here.
       lower_str = "lower" if s.lower is not None else "None"
@@ -71,10 +71,10 @@ class SliceTransformer(converter.Base):
   def visit_Subscript(self, node):
     node = self.generic_visit(node)
     s = node.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (ast.Tuple, ast.Slice)):
       return node
 
-    if not isinstance(node.ctx, gast.Load):
+    if not isinstance(node.ctx, ast.Load):
       # Index writes are handled at a higher level, one at which the rvalue is
       # also available.
       return node

@@ -17,7 +17,7 @@
 import re
 import textwrap
 
-import gast
+import ast
 
 from malt.pyct import ast_util
 from malt.pyct import errors
@@ -31,10 +31,10 @@ class ParserTest(test.TestCase):
   def assertAstMatches(self, actual_node, expected_node_src, expr=True):
     if expr:
       # Ensure multi-line expressions parse.
-      expected_node = gast.parse('({})'.format(expected_node_src)).body[0]
+      expected_node = ast.parse('({})'.format(expected_node_src)).body[0]
       expected_node = expected_node.value
     else:
-      expected_node = gast.parse(expected_node_src).body[0]
+      expected_node = ast.parse(expected_node_src).body[0]
 
     msg = 'AST did not match expected:\n{}\nActual:\n{}'.format(
         pretty_printer.fmt(expected_node),
@@ -337,30 +337,26 @@ string""")
     self.assertEqual('b', node.attr)
 
   def test_unparse(self):
-    node = gast.If(
-        test=gast.Constant(1, kind=None),
+    node = ast.If(
+        test=ast.Constant(1),
         body=[
-            gast.Assign(
+            ast.Assign(
                 targets=[
-                    gast.Name(
+                    ast.Name(
                         'a',
-                        ctx=gast.Store(),
-                        annotation=None,
-                        type_comment=None)
+                        ctx=ast.Store())
                 ],
-                value=gast.Name(
-                    'b', ctx=gast.Load(), annotation=None, type_comment=None))
+                value=ast.Name(
+                    'b', ctx=ast.Load()))
         ],
         orelse=[
-            gast.Assign(
+            ast.Assign(
                 targets=[
-                    gast.Name(
+                    ast.Name(
                         'a',
-                        ctx=gast.Store(),
-                        annotation=None,
-                        type_comment=None)
+                        ctx=ast.Store())
                 ],
-                value=gast.Constant('c', kind=None))
+                value=ast.Constant('c'))
         ])
 
     source = parser.unparse(node, indentation='  ')

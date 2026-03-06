@@ -27,7 +27,7 @@ This includes converting Python lists to TensorArray/TensorList.
 #   * convert to TensorArray only when complete write once behavior can be
 #     guaranteed (e.g. list comprehensions)
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.lang import directives
@@ -57,7 +57,7 @@ class ListTransformer(converter.Base):
 
   def _replace_append_call(self, node):
     assert len(node.args) == 1
-    assert isinstance(node.func, gast.Attribute)
+    assert isinstance(node.func, ast.Attribute)
     template = """
       target = ag__.list_append(target, element)
     """
@@ -86,7 +86,7 @@ class ListTransformer(converter.Base):
     #   print(tartget.pop(), target.pop())
     #   print(tartget.pop().pop())
     #
-    assert isinstance(node.func, gast.Attribute)
+    assert isinstance(node.func, ast.Attribute)
     scope = anno.getanno(node, NodeAnno.ARGS_SCOPE)
     target_node = node.func.value
 
@@ -132,7 +132,7 @@ class ListTransformer(converter.Base):
     # In the case of function arguments, we need to add the list to the
     # function's return value, because it is being modified.
     # TODO(mdan): Checking just the name is brittle, can it be improved?
-    if isinstance(node.func, gast.Attribute):
+    if isinstance(node.func, ast.Attribute):
       func_name = node.func.attr
       if func_name == 'append' and (len(node.args) == 1):
         node = self._replace_append_call(node)
@@ -147,7 +147,7 @@ class ListTransformer(converter.Base):
     return node
 
   def _generate_pop_operation(self, original_call_node, pop_var_name):
-    assert isinstance(original_call_node.func, gast.Attribute)
+    assert isinstance(original_call_node.func, ast.Attribute)
 
     if original_call_node.args:
       pop_element = original_call_node.args[0]

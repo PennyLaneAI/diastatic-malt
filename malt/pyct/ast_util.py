@@ -17,8 +17,6 @@
 
 import ast
 
-import gast
-
 from malt.pyct import anno
 from malt.pyct import parser
 from malt.pyct import qual_names
@@ -38,12 +36,12 @@ class CleanCopier(object):
       return [self.copy(n) for n in node]
     elif isinstance(node, tuple):
       return tuple(self.copy(n) for n in node)
-    elif not isinstance(node, (gast.AST, ast.AST)):
+    elif not isinstance(node, ast.AST):
       # Assuming everything that's not an AST, list or tuple is a value type
       # and may simply be assigned.
       return node
 
-    assert isinstance(node, (gast.AST, ast.AST))
+    assert isinstance(node, ast.AST)
 
     new_fields = {}
     for f in node._fields:
@@ -73,7 +71,7 @@ def copy_clean(node, preserve_annos=None):
   return CleanCopier(preserve_annos).copy(node)
 
 
-class SymbolRenamer(gast.NodeTransformer):
+class SymbolRenamer(ast.NodeTransformer):
   """Transformer that can rename symbols to a simple names."""
 
   def __init__(self, name_map):
@@ -82,11 +80,9 @@ class SymbolRenamer(gast.NodeTransformer):
   def _process_name_node(self, node):
     qn = anno.getanno(node, anno.Basic.QN)
     if qn in self.name_map:
-      new_node = gast.Name(
+      new_node = ast.Name(
           str(self.name_map[qn]),
-          ctx=node.ctx,
-          annotation=None,
-          type_comment=None)
+          ctx=node.ctx)
       # All annotations get carried over.
       for k in anno.keys(node):
         anno.copyanno(node, new_node, k)
@@ -139,12 +135,12 @@ def keywords_to_dict(keywords):
   keys = []
   values = []
   for kw in keywords:
-    keys.append(gast.Constant(kw.arg, kind=None))
+    keys.append(ast.Constant(kw.arg))
     values.append(kw.value)
-  return gast.Dict(keys=keys, values=values)
+  return ast.Dict(keys=keys, values=values)
 
 
-class PatternMatcher(gast.NodeVisitor):
+class PatternMatcher(ast.NodeVisitor):
   """Matches a node against a pattern represented by a node."""
 
   def __init__(self, pattern):
@@ -165,7 +161,7 @@ class PatternMatcher(gast.NodeVisitor):
   def is_wildcard(self, p):
     if isinstance(p, (list, tuple)) and len(p) == 1:
       p, = p
-    if isinstance(p, gast.Name) and p.id == '_':
+    if isinstance(p, ast.Name) and p.id == '_':
       return True
     if p == '_':
       return True
@@ -198,7 +194,7 @@ class PatternMatcher(gast.NodeVisitor):
           return self.no_match()
         for v_item, p_item in zip(v, p):
           self.compare_and_visit(v_item, p_item)
-      elif isinstance(v, (gast.AST, ast.AST)):
+      elif isinstance(v, ast.AST):
         if not isinstance(v, type(p)) and not isinstance(p, type(v)):
           return self.no_match()
         self.compare_and_visit(v, p)
@@ -264,14 +260,13 @@ def apply_to_single_assignments(targets, values, apply_fn):
   if not isinstance(targets, (list, tuple)):
     targets = (targets,)
   for target in targets:
-    if isinstance(target, (gast.Tuple, gast.List)):
+    if isinstance(target, (ast.Tuple, ast.List)):
       for i in range(len(target.elts)):
         target_el = target.elts[i]
-        if isinstance(values, (gast.Tuple, gast.List)):
+        if isinstance(values, (ast.Tuple, ast.List)):
           value_el = values.elts[i]
         else:
-          idx = parser.parse_expression(str(i))
-          value_el = gast.Subscript(values, idx, ctx=gast.Load())
+          value_el = ast.Subscript(values, ast.Constant(i), ast.Load())
         apply_to_single_assignments(target_el, value_el, apply_fn)
     else:
       apply_fn(target, values)
@@ -305,8 +300,8 @@ def parallel_walk(node, other):
     n = node_stack.pop()
     o = other_stack.pop()
 
-    if ((not isinstance(n, (ast.AST, gast.AST, str)) and n is not None) or
-        (not isinstance(o, (ast.AST, gast.AST, str)) and n is not None) or
+    if ((not isinstance(n, (ast.AST, str)) and n is not None) or
+        (not isinstance(o, (ast.AST, str)) and o is not None) or
         n.__class__.__name__ != o.__class__.__name__):
       raise ValueError('inconsistent nodes: {} ({}) and {} ({})'.format(
           n, n.__class__.__name__, o, o.__class__.__name__))
@@ -335,7 +330,7 @@ def parallel_walk(node, other):
         node_stack.extend(n_child)
         other_stack.extend(o_child)
 
-      elif isinstance(n_child, (gast.AST, ast.AST)):
+      elif isinstance(n_child, ast.AST):
         node_stack.append(n_child)
         other_stack.append(o_child)
 

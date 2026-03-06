@@ -15,7 +15,7 @@
 # ==============================================================================
 """Canonicalizes functions with multiple returns to use just one."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import anno
@@ -78,10 +78,10 @@ class ConditionalReturnRewriter(converter.Base):
     # a single conditional with possibly returns on both branches. This
     # reduces the use of None return values, which don't work with TF
     # conditionals.
-    if (isinstance(node, gast.If)
+    if (isinstance(node, ast.If)
         and anno.getanno(node, BODY_DEFINITELY_RETURNS, default=False)):
       return node, node.orelse
-    elif (isinstance(node, gast.If)
+    elif (isinstance(node, ast.If)
           and anno.getanno(node, ORELSE_DEFINITELY_RETURNS, default=False)):
       return node, node.body
 
@@ -356,7 +356,7 @@ class ReturnStatementsTransformer(converter.Base):
             # entire body. If the function had a docstring, the body has two
             # nodes, with the `with` as the second node.
             wrapper_node = node.body[-1]
-            assert isinstance(wrapper_node, gast.With), (
+            assert isinstance(wrapper_node, ast.With), (
                 'This transformer requires the functions converter.')
 
             template = """

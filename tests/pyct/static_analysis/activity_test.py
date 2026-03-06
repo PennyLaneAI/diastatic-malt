@@ -14,7 +14,7 @@
 # ==============================================================================
 """Tests for activity module."""
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import naming
@@ -187,15 +187,10 @@ class ActivityAnalyzerTest(ActivityAnalyzerTestBase):
 
     node, _ = self._parse_and_analyze(test_fn)
     print_node = node.body[2]
-    if isinstance(print_node, gast.Print):
-      # Python 2
-      print_args_scope = anno.getanno(print_node, NodeAnno.ARGS_SCOPE)
-    else:
-      # Python 3
-      assert isinstance(print_node, gast.Expr)
-      # The call node should be the one being annotated.
-      print_node = print_node.value
-      print_args_scope = anno.getanno(print_node, NodeAnno.ARGS_SCOPE)
+    assert isinstance(print_node, ast.Expr)
+    # In Python 3, print is a call expression statement.
+    print_node = print_node.value
+    print_args_scope = anno.getanno(print_node, NodeAnno.ARGS_SCOPE)
     # We basically need to detect which variables are captured by the call
     # arguments.
     self.assertScopeIs(print_args_scope, ('a', 'b'), ())

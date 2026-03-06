@@ -21,7 +21,7 @@ import enum
 
 # pylint:disable=g-bad-import-order
 
-import gast
+import ast
 # pylint:enable=g-bad-import-order
 
 
@@ -168,7 +168,7 @@ def dup(node, copy_map, field_name='___pyct_anno'):
         annotations with the destination key.
     field_name: str
   """
-  for n in gast.walk(node):
+  for n in ast.walk(node):
     for k in copy_map:
       if hasanno(n, k, field_name):
         setanno(n, copy_map[k], getanno(n, k, field_name), field_name)

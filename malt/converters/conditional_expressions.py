@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converts the ternary conditional operator."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import parser
@@ -39,7 +39,7 @@ class ConditionalExpressionTransformer(converter.Base):
         test=node.test,
         true_expr=node.body,
         false_expr=node.orelse,
-        expr_repr=gast.Constant(expr_repr, kind=None))
+        expr_repr=ast.Constant(expr_repr))
 
 
 def transform(node, ctx):

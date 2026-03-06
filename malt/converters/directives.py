@@ -30,7 +30,7 @@ converted function is cached, such an action may be irreversible.
 
 import inspect
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.lang import directives
@@ -113,7 +113,7 @@ class DirectivesTransformer(converter.Base):
 
   def visit_Name(self, node):
     node = self.generic_visit(node)
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       defs = anno.getanno(node, anno.Static.DEFINITIONS, ())
       is_defined = bool(defs)
       if not is_defined and node.id in self.ctx.info.namespace:
@@ -139,7 +139,7 @@ class DirectivesTransformer(converter.Base):
   def visit_Expr(self, node):
     self.state[_LoopScope].statements_visited += 1
     node = self.generic_visit(node)
-    if isinstance(node.value, gast.Call):
+    if isinstance(node.value, ast.Call):
       call_node = node.value
       static_val = anno.getanno(call_node.func, STATIC_VALUE, default=None)
       if static_val is not None:
@@ -163,7 +163,7 @@ class DirectivesTransformer(converter.Base):
     node = self.generic_visit(node)
     # Edge case: a loop with just one directive statement would become empty.
     if not node.body:
-      node.body = [gast.Pass()]
+      node.body = [ast.Pass()]
     self.state[_LoopScope].exit()
     return node
 

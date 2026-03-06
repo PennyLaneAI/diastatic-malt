@@ -14,11 +14,11 @@
 # ==============================================================================
 """Print an AST tree in a form more readable than ast.dump."""
 
-import gast
+import ast
 import termcolor
 
 
-class PrettyPrinter(gast.NodeVisitor):
+class PrettyPrinter(ast.NodeVisitor):
   """Print AST nodes."""
 
   def __init__(self, color, noanno):
@@ -106,7 +106,7 @@ class PrettyPrinter(gast.NodeVisitor):
           self._print('%s)' % (self._indent()))
         else:
           self._print('%s%s=()' % (self._indent(), self._field(f)))
-      elif isinstance(v, gast.AST):
+      elif isinstance(v, ast.AST):
         self.generic_visit(v, f)
       elif isinstance(v, bytes):
         self._print('%s%s=%s' % (self._indent(), self._field(f),

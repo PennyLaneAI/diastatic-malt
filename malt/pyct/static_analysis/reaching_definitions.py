@@ -27,7 +27,7 @@ Requires activity analysis.
 
 import weakref
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import cfg
@@ -198,6 +198,19 @@ class TreeAnnotator(transformer.Base):
 
     return node
 
+  def visit_arg(self, node):
+    if self.current_analyzer is None:
+      return node
+    if not anno.hasanno(node, anno.Basic.QN):
+      return node
+    qn = anno.getanno(node, anno.Basic.QN)
+    analyzer = self.current_analyzer
+    cfg_node = self.current_cfg_node
+    if cfg_node is not None:
+      defs = tuple(analyzer.out[cfg_node].value.get(qn, ()))
+      anno.setanno(node, anno.Static.DEFINITIONS, defs)
+    return node
+
   def visit_Name(self, node):
     if self.current_analyzer is None:
       # Names may appear outside function defs - for example in class
@@ -211,7 +224,7 @@ class TreeAnnotator(transformer.Base):
                                   % node.id)
 
     qn = anno.getanno(node, anno.Basic.QN)
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       anno.setanno(node, anno.Static.DEFINITIONS,
                    tuple(analyzer.in_[cfg_node].value.get(qn, ())))
     else:
