@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converts function definitions and lambdas by adding necessary boilerplate."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import anno
@@ -70,7 +70,7 @@ class FunctionTransformer(converter.Base):
           template,
           options=self._function_scope_options(fn_scope).to_ast(),
           function_context=function_context_name,
-          function_context_name=gast.Constant(function_context_name, kind=None),
+          function_context_name=ast.Constant(function_context_name),
           body=node.body)
 
       return node
@@ -102,8 +102,8 @@ class FunctionTransformer(converter.Base):
       docstring_node = None
       if node.body:
         first_statement = node.body[0]
-        if (isinstance(first_statement, gast.Expr) and
-            isinstance(first_statement.value, gast.Constant)):
+        if (isinstance(first_statement, ast.Expr) and
+            isinstance(first_statement.value, ast.Constant)):
           docstring_node = first_statement
           node.body = node.body[1:]
 
@@ -114,8 +114,8 @@ class FunctionTransformer(converter.Base):
       """
       wrapped_body = templates.replace(
           template,
-          function_name=gast.Constant(node.name, kind=None),
-          context_name=gast.Constant(function_context_name, kind=None),
+          function_name=ast.Constant(node.name),
+          context_name=ast.Constant(function_context_name),
           options=self._function_scope_options(fn_scope).to_ast(),
           function_context=function_context_name,
           body=node.body)

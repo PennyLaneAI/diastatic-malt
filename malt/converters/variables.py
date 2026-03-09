@@ -15,7 +15,7 @@
 # ==============================================================================
 """Overloads all variable read operations."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import anno
@@ -53,7 +53,7 @@ class VariableAccessTransformer(converter.Base):
     # Only the loads which existed in the original code are overloaded.
     if not anno.hasanno(node, anno.Static.ORIG_DEFINITIONS):
       return node
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       node = templates.replace_as_expression('ag__.ld(var_)', var_=node)
     return node
 
@@ -63,7 +63,7 @@ class VariableAccessTransformer(converter.Base):
     rewrite_targets = []
     for tgt in node.targets:
       # Don't rewrite composites like `del a[0]`.
-      if isinstance(tgt, gast.Name):
+      if isinstance(tgt, ast.Name):
         rewrite_targets.append(tgt)
 
     if not rewrite_targets:
@@ -75,15 +75,15 @@ class VariableAccessTransformer(converter.Base):
         var_ = ag__.Undefined(var_name)
       """
       results.extend(templates.replace(
-          template, var_=tgt, var_name=gast.Constant(tgt.id, kind=None)))
+          template, var_=tgt, var_name=ast.Constant(tgt.id)))
     remaining_targets = [n for n in node.targets if n not in rewrite_targets]
     if remaining_targets:
-      results.append(gast.Delete(targets=remaining_targets))
+      results.append(ast.Delete(targets=remaining_targets))
 
     return results
 
   def visit_AugAssign(self, node):
-    if isinstance(node.target, gast.Name):
+    if isinstance(node.target, ast.Name):
       template = """
         var_ = ag__.ld(var_)
         original

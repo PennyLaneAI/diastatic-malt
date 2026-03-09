@@ -16,7 +16,7 @@
 
 import textwrap
 
-import gast
+import ast
 
 from malt.pyct import loader
 from malt.pyct import parser
@@ -452,14 +452,8 @@ class AnfConfiguredTest(AnfTestBase):
   def test_constants_in_function_calls(self):
     # An example specific configuration that differs from the default: Moving
     # literals out of being directly passed to functions, but nothing else.
-    try:
-      # TODO(b/140808434): Fix this.
-      # gast pre-0.3
-      literals = (gast.Num, gast.Str, gast.Bytes, gast.NameConstant, gast.Name)
-    except AttributeError:
-      # gast 0.3+
-      literals = (gast.Constant, gast.Name)
-    config = [(anf.ASTEdgePattern(gast.Call, anf.ANY, literals), anf.REPLACE)]
+    literals = (ast.Constant, ast.Name)
+    config = [(anf.ASTEdgePattern(ast.Call, anf.ANY, literals), anf.REPLACE)]
 
     def test_function(x, frob):
       return frob(x, x+1, 2)
@@ -481,7 +475,7 @@ class AnfConfiguredTest(AnfTestBase):
       func_name = parent.func.id
       return str(func_name) in allowlist
 
-    config = [(anf.ASTEdgePattern(gast.Call, anf.ANY, anf.ANY), transform)]
+    config = [(anf.ASTEdgePattern(ast.Call, anf.ANY, anf.ANY), transform)]
 
     def test_function(x, foo, bar):
       y = foo(x, x+1, 2)
@@ -499,8 +493,8 @@ class AnfConfiguredTest(AnfTestBase):
     # Checking that the nodes for `True`, `False`, and `None` can be manipulated
     # by a configuration.  This is non-trivial, because in Python 2 those are
     # represented as `Name`, which is the same node type as variable references.
-    specials = (gast.Name, gast.Constant)
-    config = [(anf.ASTEdgePattern(gast.Call, anf.ANY, specials), anf.REPLACE)]
+    specials = (ast.Name, ast.Constant)
+    config = [(anf.ASTEdgePattern(ast.Call, anf.ANY, specials), anf.REPLACE)]
 
     def test_function(f):
       return f(True, False, None)

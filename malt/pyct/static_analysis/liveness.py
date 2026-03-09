@@ -26,7 +26,7 @@ This analysis attaches the following:
 Requires activity analysis.
 """
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import cfg
@@ -45,7 +45,7 @@ class Analyzer(cfg.GraphVisitor):
     return set()
 
   def lamba_check(self, fn_ast_node):
-    if isinstance(fn_ast_node, gast.Lambda):
+    if isinstance(fn_ast_node, ast.Lambda):
       # Exception: lambda functions are assumed to be used only in the
       # place where they are defined, and not later.
       return True
@@ -123,7 +123,7 @@ class TreeAnnotator(transformer.Base):
   def visit(self, node):
     node = super(TreeAnnotator, self).visit(node)
     if (self.current_analyzer is not None and
-        isinstance(node, gast.stmt) and
+        isinstance(node, ast.stmt) and
         node in self.current_analyzer.graph.index):
       cfg_node = self.current_analyzer.graph.index[node]
       anno.setanno(node, anno.Static.LIVE_VARS_IN,

@@ -18,7 +18,7 @@
 import collections
 import enum
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import parser
@@ -354,7 +354,7 @@ class NodeStateTracker(object):
 
 
 # TODO(mdan): Rename to PythonCodeTransformer.
-class Base(NodeStateTracker, gast.NodeTransformer):
+class Base(NodeStateTracker, ast.NodeTransformer):
   """Base class for general-purpose Python-to-Python code transformation.
 
   This is an extension of ast.NodeTransformer that provides the additional
@@ -403,20 +403,20 @@ class Base(NodeStateTracker, gast.NodeTransformer):
     if not isinstance(targets, (list, tuple)):
       targets = (targets,)
     for target in targets:
-      if isinstance(target, (gast.Tuple, gast.List)):
+      if isinstance(target, (ast.Tuple, ast.List)):
         for i in range(len(target.elts)):
           target_el = target.elts[i]
-          if isinstance(values, (gast.Tuple, gast.List)):
+          if isinstance(values, (ast.Tuple, ast.List)):
             value_el = values.elts[i]
           else:
-            value_el = gast.Subscript(values, i, ctx=gast.Store())
+            value_el = ast.Subscript(values, ast.Constant(i), ast.Store())
           self.apply_to_single_assignments(target_el, value_el, apply_fn)
       else:
         # TODO(mdan): Look into allowing to rewrite the AST here.
         apply_fn(target, values)
 
   def visit(self, node):
-    if not isinstance(node, gast.AST):
+    if not isinstance(node, ast.AST):
       # This is not that uncommon a mistake: various node bodies are lists, for
       # example, posing a land mine for transformers that need to recursively
       # call `visit`.  The error needs to be raised before the exception handler
@@ -435,7 +435,7 @@ class Base(NodeStateTracker, gast.NodeTransformer):
       self.ctx.current_origin = anno.getanno(node, anno.Basic.ORIGIN)
 
     try:
-      processing_expr_node = isinstance(node, gast.Expr)
+      processing_expr_node = isinstance(node, ast.Expr)
       if processing_expr_node:
         entry_expr_value = node.value
 
@@ -443,13 +443,13 @@ class Base(NodeStateTracker, gast.NodeTransformer):
 
       # Adjust for consistency: replacing the value of an Expr with
       # an Assign node removes the need for the Expr node.
-      if (processing_expr_node and isinstance(result, gast.Expr) and
+      if (processing_expr_node and isinstance(result, ast.Expr) and
           (result.value is not entry_expr_value)):
         # When the replacement is a list, it is assumed that the list came
         # from a template that contained a number of statements, which
         # themselves are standalone and don't require an enclosing Expr.
         if isinstance(result.value,
-                      (list, tuple, gast.Assign, gast.AugAssign)):
+                      (list, tuple, ast.Assign, ast.AugAssign)):
           result = result.value
 
       # By default, all replacements receive the origin info of the replaced
@@ -472,7 +472,7 @@ class Base(NodeStateTracker, gast.NodeTransformer):
     return result
 
 
-class CodeGenerator(NodeStateTracker, gast.NodeVisitor):
+class CodeGenerator(NodeStateTracker, ast.NodeVisitor):
   """Base class for general-purpose Python-to-string code transformation.
 
   Similar to Base, but outputs arbitrary strings instead of a Python AST.

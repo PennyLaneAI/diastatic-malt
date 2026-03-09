@@ -14,10 +14,10 @@
 # ==============================================================================
 """Random code generation for testing/fuzzing."""
 # pylint: disable=invalid-name
+import ast
 import random
 import string
 
-import gast
 import numpy as np
 
 from malt.pyct import templates
@@ -34,50 +34,50 @@ class NodeSampler(object):
 
 class StatementSampler(NodeSampler):
   sample_map = dict((
-      (gast.Assign, 10),
-      (gast.Print, 1),
-      (gast.If, 2),
-      (gast.While, 2),
-      (gast.For, 0),
+      (ast.Assign, 10),
+      (ast.Expr, 1),
+      (ast.If, 2),
+      (ast.While, 2),
+      (ast.For, 0),
   ))
 
 
 class ExpressionSampler(NodeSampler):
   sample_map = dict((
-      (gast.UnaryOp, 1),
-      (gast.BinOp, 8),
-      (gast.Name, 1),
-      (gast.Call, 0),
+      (ast.UnaryOp, 1),
+      (ast.BinOp, 8),
+      (ast.Name, 1),
+      (ast.Call, 0),
   ))
 
 
 class CompareSampler(NodeSampler):
   sample_map = dict((
-      (gast.Eq, 1),
-      (gast.NotEq, 1),
-      (gast.Lt, 1),
-      (gast.LtE, 1),
-      (gast.Gt, 1),
-      (gast.GtE, 1),
-      (gast.Is, 1),
-      (gast.IsNot, 1),
+      (ast.Eq, 1),
+      (ast.NotEq, 1),
+      (ast.Lt, 1),
+      (ast.LtE, 1),
+      (ast.Gt, 1),
+      (ast.GtE, 1),
+      (ast.Is, 1),
+      (ast.IsNot, 1),
   ))
 
 
 class BinaryOpSampler(NodeSampler):
   sample_map = dict((
-      (gast.Add, 1),
-      (gast.Sub, 1),
-      (gast.Mult, 1),
-      (gast.Div, 1),
-      (gast.FloorDiv, 1),
-      (gast.Mod, 1),
-      (gast.Pow, 1),
+      (ast.Add, 1),
+      (ast.Sub, 1),
+      (ast.Mult, 1),
+      (ast.Div, 1),
+      (ast.FloorDiv, 1),
+      (ast.Mod, 1),
+      (ast.Pow, 1),
   ))
 
 
 class UnaryOpSampler(NodeSampler):
-  sample_map = dict(((gast.USub, 1), (gast.UAdd, 0)))
+  sample_map = dict(((ast.USub, 1), (ast.UAdd, 0)))
 
 
 class NameSampler(NodeSampler):
@@ -106,7 +106,7 @@ class CodeGenerator(object):
     # Enforce some constraints on generating statements.
     # E.g., if statements need at least 3 readable variables.
     # If we fail to satisfy our constraints, draw another sample.
-    if desired_node in (gast.While, gast.For, gast.If):
+    if desired_node in (ast.While, ast.For, ast.If):
       if self.depth > self.max_depth:
         return self.generate_statement()
 
@@ -133,25 +133,28 @@ class CodeGenerator(object):
       statements.append(generator())
     return statements
 
-  def generate_Name(self, ctx=gast.Load()):
+  def generate_Name(self, ctx=None):
+    if ctx is None:
+      ctx = ast.Load()
     variable_name = '_' + ''.join(
         random.choice(string.ascii_lowercase) for _ in range(4))
-    return gast.Name(variable_name, ctx=ctx, annotation=None)
+    return ast.Name(id=variable_name, ctx=ctx)
 
   def generate_BinOp(self):
     # TODO(alexbw): convert to generate_expression when we get to limit
     # expression depth.
     op = BinaryOpSampler().sample()()
-    return gast.BinOp(self.generate_Name(), op, self.generate_Name())
+    return ast.BinOp(left=self.generate_Name(), op=op, right=self.generate_Name())
 
   def generate_Compare(self):
     op = CompareSampler().sample()()
-    return gast.Compare(self.generate_Name(), [op], [self.generate_Name()])
+    return ast.Compare(
+        left=self.generate_Name(), ops=[op], comparators=[self.generate_Name()])
 
   def generate_UnaryOp(self):
     operand = self.generate_Name()
     op = UnaryOpSampler().sample()()
-    return gast.UnaryOp(op, operand)
+    return ast.UnaryOp(op=op, operand=operand)
 
   def generate_expression(self):
     desired_node = ExpressionSampler().sample()
@@ -163,11 +166,11 @@ class CodeGenerator(object):
   def generate_Assign(self):
     """Generate an Assign node."""
     # Generate left-hand side
-    target_node = self.generate_Name(gast.Store())
+    target_node = self.generate_Name(ast.Store())
     # Generate right-hand side
     value_node = self.generate_expression()
     # Put it all together
-    node = gast.Assign(targets=[target_node], value=value_node)
+    node = ast.Assign(targets=[target_node], value=value_node)
     return node
 
   def generate_If(self):
@@ -186,7 +189,7 @@ class CodeGenerator(object):
         high=N_CONTROLFLOW_STATEMENTS // 2,
         generator=self.generate_statement)
 
-    node = gast.If(test, body, orelse)
+    node = ast.If(test=test, body=body, orelse=orelse)
     return node
 
   def generate_While(self):
@@ -197,32 +200,50 @@ class CodeGenerator(object):
         low=1, high=N_CONTROLFLOW_STATEMENTS, generator=self.generate_statement)
     orelse = []  # not generating else statements
 
-    node = gast.While(test, body, orelse)
+    node = ast.While(test=test, body=body, orelse=orelse)
     return node
 
   def generate_Call(self):
     raise NotImplementedError
 
   def generate_Return(self):
-    return gast.Return(self.generate_expression())
+    return ast.Return(value=self.generate_expression())
 
   def generate_Print(self):
     return templates.replace('print(x)', x=self.generate_expression())[0]
+
+  def generate_Expr(self):
+    return self.generate_Print()
 
   def generate_FunctionDef(self):
     """Generate a FunctionDef node."""
 
     # Generate the arguments, register them as available
     arg_vars = self.sample_node_list(
-        low=2, high=10, generator=lambda: self.generate_Name(gast.Param()))
-    args = gast.arguments(arg_vars, None, [], [], None, [])
+        low=2,
+        high=10,
+        generator=lambda: ast.arg(arg=self.generate_Name().id, annotation=None))
+    args = ast.arguments(
+        posonlyargs=[],
+        args=arg_vars,
+        vararg=None,
+        kwonlyargs=[],
+        kw_defaults=[],
+        kwarg=None,
+        defaults=[])
 
     # Generate the function body
     body = self.sample_node_list(
         low=1, high=N_FUNCTIONDEF_STATEMENTS, generator=self.generate_statement)
     body.append(self.generate_Return())
     fn_name = self.generate_Name().id
-    node = gast.FunctionDef(fn_name, args, body, (), None)
+    node = ast.FunctionDef(
+        name=fn_name,
+        args=args,
+        body=body,
+        decorator_list=[],
+        returns=None,
+        type_comment=None)
     return node
 
 

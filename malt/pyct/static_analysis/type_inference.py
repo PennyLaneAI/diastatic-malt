@@ -32,7 +32,7 @@ import itertools
 
 from typing import Any, Callable, Dict, Set
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import cfg
@@ -178,7 +178,7 @@ class _TypeMap(object):
 NO_VALUE = object()
 
 
-class StmtInferrer(gast.NodeVisitor):
+class StmtInferrer(ast.NodeVisitor):
   """Runs type inference on a single AST statement.
 
   This visitor annotates most nodes with type information. It also sets types
@@ -239,7 +239,7 @@ class StmtInferrer(gast.NodeVisitor):
     return types
 
   def _apply_unpacking(self, node):
-    assert isinstance(node.ctx, gast.Store)
+    assert isinstance(node.ctx, ast.Store)
     if self.rtype is not None:
       original_stype = self.rtype
       # TODO(mdan): Find a better way to express unpacking.
@@ -253,7 +253,7 @@ class StmtInferrer(gast.NodeVisitor):
     return None
 
   def visit_Tuple(self, node):
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       elt_types = ()
       for elt in node.elts:
         types_ = self.visit(elt)
@@ -264,7 +264,7 @@ class StmtInferrer(gast.NodeVisitor):
     return self._apply_unpacking(node)
 
   def visit_List(self, node):
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       elt_types = tuple(self.visit(elt) for elt in node.elts)
       return self.resolver.res_list_literal(self.namespace, elt_types)
     return self._apply_unpacking(node)
@@ -272,10 +272,25 @@ class StmtInferrer(gast.NodeVisitor):
   def visit_Set(self, node):
     raise NotImplementedError()
 
+  def visit_arg(self, node):
+    """Resolve parameter type. Requires QnResolver has run."""
+    name = anno.getanno(node, anno.Basic.QN, None)
+    if name is None:
+      return None
+    # The direct parent is the whole function scope. See activity.py.
+    f_is_local = self.scope.parent.parent is not None
+    type_name = anno.getanno(node.annotation, anno.Basic.QN, None) if node.annotation else None
+    types = self.resolver.res_arg(self.namespace, self.types_in.types,
+                                  self.scope.function_name, name, type_name,
+                                  f_is_local)
+    if types is not None:
+      self.new_symbols[name] = types
+    return types
+
   def visit_Name(self, node):
     name = anno.getanno(node, anno.Basic.QN)
 
-    if isinstance(node.ctx, gast.Load):
+    if isinstance(node.ctx, ast.Load):
       types = self.types_in.types.get(name, None)
       if types is None:
         if (name not in self.scope.bound) or (name in self.scope.nonlocals):
@@ -288,24 +303,13 @@ class StmtInferrer(gast.NodeVisitor):
             if value is not None:
               anno.setanno(node, anno.Static.VALUE, value)
 
-    elif isinstance(node.ctx, gast.Param):
-      # The direct parent it the whole function scope. See activity.py.
-      f_is_local = self.scope.parent.parent is not None
-
-      type_name = anno.getanno(node.annotation, anno.Basic.QN, None)
-      types = self.resolver.res_arg(self.namespace, self.types_in.types,
-                                    self.scope.function_name, name, type_name,
-                                    f_is_local)
-      if types is not None:
-        self.new_symbols[name] = types
-
-    elif isinstance(node.ctx, gast.Store):
+    elif isinstance(node.ctx, ast.Store):
       if self.rtype is not None:
         self.new_symbols[name] = self.rtype
       types = self.rtype
 
     else:
-      assert False, 'unknown ctx'
+      assert False, 'unknown ctx: %s' % type(node.ctx)
 
     if __debug__:
       self._check_set(types)

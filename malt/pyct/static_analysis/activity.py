@@ -21,7 +21,7 @@ Requires qualified name annotations (see qual_names.py).
 import copy
 import weakref
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import qual_names
@@ -251,8 +251,8 @@ class ActivityAnalyzer(transformer.Base):
     if context.level > 2:
       innermost = context.stack[-1].node
       parent = context.stack[-2].node
-      return (isinstance(parent, gast.ClassDef) and
-              (isinstance(innermost, gast.FunctionDef) and
+      return (isinstance(parent, ast.ClassDef) and
+              (isinstance(innermost, ast.FunctionDef) and
                innermost.name == '__init__'))
     return False
 
@@ -263,6 +263,16 @@ class ActivityAnalyzer(transformer.Base):
       if qn.has_attr and qn.parent.qn == ('self',):
         return True
     return False
+
+  def visit_arg(self, node):
+    """Mark function parameter (ast.arg) in scope. Requires QnResolver has run."""
+    node = self.generic_visit(node)
+    if not anno.hasanno(node, anno.Basic.QN):
+      return node
+    qn = anno.getanno(node, anno.Basic.QN)
+    self.scope.bound.add(qn)
+    self.scope.mark_param(qn, self.state[_FunctionOrClass].node)
+    return node
 
   def _track_symbol(self, node, composite_writes_alter_parent=False):
     if self._track_annotations_only and not self._in_annotation:
@@ -282,7 +292,7 @@ class ActivityAnalyzer(transformer.Base):
       if qn.owner_set & set(l.targets):
         return
 
-    if isinstance(node.ctx, gast.Store):
+    if isinstance(node.ctx, ast.Store):
       # In comprehensions, modified symbols are the comprehension targets.
       if self.state[_Comprehension].level > 0:
         self.state[_Comprehension].targets.add(qn)
@@ -295,16 +305,12 @@ class ActivityAnalyzer(transformer.Base):
       if self._in_aug_assign:
         self.scope.read.add(qn)
 
-    elif isinstance(node.ctx, gast.Load):
+    elif isinstance(node.ctx, ast.Load):
       self.scope.read.add(qn)
       if self._in_annotation:
         self.scope.annotations.add(qn)
 
-    elif isinstance(node.ctx, gast.Param):
-      self.scope.bound.add(qn)
-      self.scope.mark_param(qn, self.state[_FunctionOrClass].node)
-
-    elif isinstance(node.ctx, gast.Del):
+    elif isinstance(node.ctx, ast.Del):
       # The read matches the Python semantics - attempting to delete an
       # undefined symbol is illegal.
       self.scope.read.add(qn)
@@ -411,7 +417,7 @@ class ActivityAnalyzer(transformer.Base):
     return self._process_statement(node)
 
   def visit_Name(self, node):
-    if node.annotation:
+    if getattr(node, 'annotation', None):
       node.annotation = self._process_annotation(node.annotation)
     self._track_symbol(node)
     return node

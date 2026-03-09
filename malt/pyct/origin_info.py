@@ -21,7 +21,7 @@ import io
 import os
 import tokenize
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import ast_util
@@ -160,7 +160,7 @@ class _Function:
     self.name = name
 
 
-class OriginResolver(gast.NodeVisitor):
+class OriginResolver(ast.NodeVisitor):
   """Annotates an AST with additional source information like file name."""
 
   def __init__(self, root_node, source_lines, comments_map,
@@ -216,7 +216,7 @@ class OriginResolver(gast.NodeVisitor):
 
   def visit(self, node):
     entered_function = False
-    if isinstance(node, gast.FunctionDef):
+    if isinstance(node, ast.FunctionDef):
       entered_function = True
       self._function_stack.append(_Function(node.name))
 
@@ -242,7 +242,7 @@ def resolve(node, source, context_filepath, context_lineno, context_col_offset):
   location of the node in the original context.
 
   Args:
-    node: gast.AST, the AST to annotate.
+    node: ast.AST, the AST to annotate.
     source: Text, the source code representing node.
     context_filepath: Text
     context_lineno: int
@@ -258,7 +258,7 @@ def resolve(node, source, context_filepath, context_lineno, context_col_offset):
       if tok_type == tokenize.COMMENT:
         comments_map[srow] = tok_string.strip()[1:].strip()
   except tokenize.TokenError:
-    if isinstance(node, gast.Lambda):
+    if isinstance(node, ast.Lambda):
       # Source code resolution in older Python versions is brittle for
       # lambda functions, and may contain garbage.
       pass
@@ -294,5 +294,5 @@ def copy_origin(from_node, to_node):
   if not isinstance(to_node, (list, tuple)):
     to_node = (to_node,)
   for node in to_node:
-    for n in gast.walk(node):
+    for n in ast.walk(node):
       anno.setanno(n, anno.Basic.ORIGIN, origin)

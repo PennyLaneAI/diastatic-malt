@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converter for slice operations."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.lang import directives
@@ -28,14 +28,23 @@ class SliceTransformer(converter.Base):
   Currently, relying on the default slice operator that Tensor uses is
   insufficient, because TensorArray and tensor lists use dedicated index read
   and write functions.
+
+  Also converts array element operator assignment statements into calls to update_item_with_{op},
+  where op is one of the following:
+
+    - `add` corresponding to `+=`
+    - `sub` to `-=`
+    - `mult` to `*=`
+    - `div` to `/=`
+    - `pow` to `**=`
   """
 
   def _process_single_assignment(self, target, value):
     # (dime10) This function has been modified to support slices.
-    if not isinstance(target, gast.Subscript):
+    if not isinstance(target, ast.Subscript):
       return None
     s = target.slice
-    if isinstance(s, (gast.Tuple)):
+    if isinstance(s, (ast.Tuple)):
       # multi-dimensional indices are not supported
       return None
 
@@ -45,7 +54,7 @@ class SliceTransformer(converter.Base):
 
     lower, upper, step = None, None, None
 
-    if isinstance(s, (gast.Slice)):
+    if isinstance(s, (ast.Slice)):
       # Replace unused arguments in the string template with "None" to preserve each arguments' position.
       # malt.pyct.templates.replace ignores None and does not accept string so the change need to be applied here.
       lower_str = "lower" if s.lower is not None else "None"
@@ -68,13 +77,62 @@ class SliceTransformer(converter.Base):
       return replacement
     return node
 
+  def _process_single_update(self, target, op, value):
+    if not isinstance(target, ast.Subscript):
+      return None
+    s = target.slice
+    if isinstance(s, (ast.Tuple, ast.Call)):
+      return None
+    if not isinstance(op, (ast.Mult, ast.Add, ast.Sub, ast.Div, ast.Pow)):
+      return None
+
+    template = f"""
+      target = ag__.update_item_with_op(target, index, x, "{type(op).__name__.lower()}")
+    """
+    lower, upper, step = None, None, None
+
+    if isinstance(s, ast.Slice):
+      # Replace unused arguments in template with "None" to preserve each arguments' position.
+      # templates.replace ignores None and does not accept string so change is applied here.
+      lower_str = "lower" if s.lower is not None else "None"
+      upper_str = "upper" if s.upper is not None else "None"
+      step_str = "step" if s.step is not None else "None"
+      template = template.replace("index", f"slice({lower_str}, {upper_str}, {step_str})")
+
+      lower, upper, step = s.lower, s.upper, s.step
+
+    return templates.replace(
+      template,
+      target=target.value,
+      index=target.slice,
+      lower=lower,
+      upper=upper,
+      step=step,
+      x=value,
+    )
+
+  def visit_AugAssign(self, node):
+    """The AugAssign node is replaced with a call to ag__.update_item_with_{op}
+    when its target is a single index array subscript and its op is an arithmetic
+    operator (i.e. Add, Sub, Mult, Div, or Pow), otherwise the node is left as is.
+
+    Example:
+        `x[i] += y` is replaced with `x = ag__.update_item_with(x, i, y)`
+        `x[i] ^= y` remains unchanged
+    """
+    node = self.generic_visit(node)
+    replacement = self._process_single_update(node.target, node.op, node.value)
+    if replacement is not None:
+      return replacement
+    return node
+
   def visit_Subscript(self, node):
     node = self.generic_visit(node)
     s = node.slice
-    if isinstance(s, (gast.Tuple, gast.Slice)):
+    if isinstance(s, (ast.Tuple, ast.Slice)):
       return node
 
-    if not isinstance(node.ctx, gast.Load):
+    if not isinstance(node.ctx, ast.Load):
       # Index writes are handled at a higher level, one at which the rvalue is
       # also available.
       return node

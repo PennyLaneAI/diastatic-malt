@@ -15,7 +15,7 @@
 # ==============================================================================
 """Converts assert statements to their corresponding TF calls."""
 
-import gast
+import ast
 
 from malt.core import converter
 from malt.pyct import templates
@@ -37,8 +37,8 @@ class AssertTransformer(converter.Base):
       return templates.replace(
           template,
           test=node.test,
-          msg=gast.Constant('Assertion error', kind=None))
-    elif isinstance(node.msg, gast.Constant):
+          msg=ast.Constant('Assertion error'))
+    elif isinstance(node.msg, ast.Constant):
       return templates.replace(template, test=node.test, msg=node.msg)
     else:
       raise NotImplementedError('can only convert string messages for now.')

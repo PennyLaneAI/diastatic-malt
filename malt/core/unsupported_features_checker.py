@@ -15,12 +15,12 @@
 # ==============================================================================
 """Checkers for detecting unsupported Python features."""
 
-import gast
+import ast
 
 from malt.pyct import errors
 
 
-class UnsupportedFeaturesChecker(gast.NodeVisitor):
+class UnsupportedFeaturesChecker(ast.NodeVisitor):
   """Quick check for Python features we know we don't support.
 
   Any features detected will cause AutoGraph to not compile a function.

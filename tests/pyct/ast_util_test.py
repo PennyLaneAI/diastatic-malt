@@ -18,8 +18,6 @@ import ast
 import collections
 import textwrap
 
-import gast
-
 from malt.pyct import anno
 from malt.pyct import ast_util
 from malt.pyct import loader
@@ -32,7 +30,7 @@ from tensorflow.python.platform import test
 class AstUtilTest(test.TestCase):
 
   def assertAstMatches(self, actual_node, expected_node_src):
-    expected_node = gast.parse('({})'.format(expected_node_src)).body[0]
+    expected_node = ast.parse('({})'.format(expected_node_src)).body[0]
     msg = 'AST did not match expected:\n{}\nActual:\n{}'.format(
         pretty_printer.fmt(expected_node),
         pretty_printer.fmt(actual_node))
@@ -236,7 +234,7 @@ class AstUtilTest(test.TestCase):
   def assertLambdaNodes(self, matching_nodes, expected_bodies):
     self.assertEqual(len(matching_nodes), len(expected_bodies))
     for node in matching_nodes:
-      self.assertIsInstance(node, gast.Lambda)
+      self.assertIsInstance(node, ast.Lambda)
       self.assertIn(
           parser.unparse(node.body, include_encoding_marker=False).strip(),
           expected_bodies)

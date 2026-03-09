@@ -19,7 +19,7 @@ import inspect
 import threading
 import types
 
-import gast
+import ast
 
 from malt.pyct import cache
 from malt.pyct import inspect_utils
@@ -109,17 +109,14 @@ def _wrap_into_factory(nodes, entity_name, inner_factory_name,
     dummy_closure_defs.extend(templates.replace(template, var_name=var_name))
 
   if future_features:
-    future_imports = gast.ImportFrom(
+    future_imports = ast.ImportFrom(
         module='__future__',
-        names=[gast.alias(name=name, asname=None) for name in future_features],
+        names=[ast.alias(name=name, asname=None) for name in future_features],
         level=0)
   else:
     future_imports = []
 
-  factory_args = [
-      gast.Name(name, ctx=gast.Param(), annotation=None, type_comment=None)
-      for name in factory_args
-  ]
+  factory_args = [ast.arg(arg=name, annotation=None) for name in factory_args]
 
   template = """
     future_imports
@@ -247,9 +244,9 @@ class GenericTranspiler(object):
 
   def get_transformed_name(self, node):
     """Returns a name for the output function. Subclasses may override this."""
-    if isinstance(node, gast.Lambda):
+    if isinstance(node, ast.Lambda):
       return 'lam'
-    elif isinstance(node, gast.FunctionDef):
+    elif isinstance(node, ast.FunctionDef):
       return node.name
     raise ValueError('Unknown node type {}'.format(node))
 
@@ -466,14 +463,12 @@ class PyToPy(GenericTranspiler):
           # TODO(mdan): Confusing overloading pattern. Fix.
           nodes, ctx = super(PyToPy, self).transform_function(fn, user_context)
 
-          if isinstance(nodes, gast.Lambda):
-            nodes = gast.Assign(
+          if isinstance(nodes, ast.Lambda):
+            nodes = ast.Assign(
                 targets=[
-                    gast.Name(
+                    ast.Name(
                         ctx.info.name,
-                        ctx=gast.Store(),
-                        annotation=None,
-                        type_comment=None)
+                        ctx=ast.Store())
                 ],
                 value=nodes)
           else:

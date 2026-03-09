@@ -19,7 +19,7 @@ A function definition is said to reach a statement if that function may exist
 (and therefore may be called) when that statement executes.
 """
 
-import gast
+import ast
 
 from malt.pyct import anno
 from malt.pyct import cfg
@@ -94,7 +94,7 @@ class Analyzer(cfg.GraphVisitor):
       defs_in |= self.out[n]
 
     defs_out = defs_in
-    if isinstance(node.ast_node, (gast.Lambda, gast.FunctionDef)):
+    if isinstance(node.ast_node, (ast.Lambda, ast.FunctionDef)):
       defs_out += node.ast_node
 
     self.in_[node] = defs_in

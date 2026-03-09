@@ -5,8 +5,6 @@ with open(path.join(path.dirname(__file__), "malt", "_version.py")) as f:
     version = f.readlines()[-1].split()[-1].strip("\"'")
 
 requirements = [
-    "astunparse",
-    "gast",
     "termcolor",
 ]
 

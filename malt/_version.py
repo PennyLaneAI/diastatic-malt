@@ -14,4 +14,4 @@
 # limitations under the License.
 """This references the TensorFlow version the current package was originally forked from."""
 
-__version__ = "2.15.2"
+__version__ = "2.15.3"

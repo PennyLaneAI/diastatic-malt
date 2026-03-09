@@ -40,8 +40,7 @@ import collections
 import enum
 import weakref
 
-import astunparse
-import gast
+import ast
 
 from malt.pyct import anno
 
@@ -77,14 +76,13 @@ class Node(object):
     self.prev = weakref.WeakSet(self.prev)
 
   def __repr__(self):
-    if isinstance(self.ast_node, gast.FunctionDef):
+    if isinstance(self.ast_node, ast.FunctionDef):
       return 'def %s' % self.ast_node.name
-    elif isinstance(self.ast_node, gast.ClassDef):
+    elif isinstance(self.ast_node, ast.ClassDef):
       return 'class %s' % self.ast_node.name
-    elif isinstance(self.ast_node, gast.withitem):
-      # TODO(xjun): remove use of astunparse
-      return astunparse.unparse(self.ast_node.context_expr).strip()
-    return astunparse.unparse(self.ast_node).strip()
+    elif isinstance(self.ast_node, ast.withitem):
+      return ast.unparse(self.ast_node.context_expr).strip()
+    return ast.unparse(self.ast_node).strip()
 
 
 class Graph(
@@ -209,7 +207,7 @@ class GraphVisitor(object):
     if anno.hasanno(ast_node, anno.Basic.SKIP_PROCESSING):
       return True
     return isinstance(ast_node,
-                      (gast.Break, gast.Continue, gast.Raise, gast.Pass))
+                      (ast.Break, ast.Continue, ast.Raise, ast.Pass))
 
   def _visit_internal(self, mode):
     """Visits the CFG, breadth-first."""
@@ -640,7 +638,7 @@ class GraphBuilder(object):
     return result
 
 
-class AstToCfg(gast.NodeVisitor):
+class AstToCfg(ast.NodeVisitor):
   """Converts an AST to CFGs.
 
   A separate CFG will be constructed for each function.
@@ -665,7 +663,7 @@ class AstToCfg(gast.NodeVisitor):
   def _get_enclosing_finally_scopes(self, stop_at):
     included = []
     for node in reversed(self.lexical_scopes):
-      if isinstance(node, gast.Try) and node.finalbody:
+      if isinstance(node, ast.Try) and node.finalbody:
         included.append(node)
       if isinstance(node, stop_at):
         return node, included
@@ -674,7 +672,7 @@ class AstToCfg(gast.NodeVisitor):
   def _get_enclosing_except_scopes(self, stop_at):
     included = []
     for node in reversed(self.lexical_scopes):
-      if isinstance(node, gast.Try) and node.handlers:
+      if isinstance(node, ast.Try) and node.handlers:
         included.extend(node.handlers)
       if isinstance(node, stop_at):
         break
@@ -751,7 +749,7 @@ class AstToCfg(gast.NodeVisitor):
 
     self._process_basic_statement(node.args)
     if is_lambda:
-      self._process_exit_statement(node.body, (gast.Lambda,))
+      self._process_exit_statement(node.body, (ast.Lambda,))
     else:
       for stmt in node.body:
         self.visit(stmt)
@@ -769,7 +767,7 @@ class AstToCfg(gast.NodeVisitor):
     self._process_function_def(node, is_lambda=True)
 
   def visit_Return(self, node):
-    self._process_exit_statement(node, (gast.FunctionDef,))
+    self._process_exit_statement(node, (ast.FunctionDef,))
 
   def visit_Import(self, node):
     self._process_basic_statement(node)
@@ -803,7 +801,7 @@ class AstToCfg(gast.NodeVisitor):
 
   def visit_Raise(self, node):
     self._process_exit_statement(
-        node, (gast.FunctionDef,), may_exit_via_except=True)
+        node, (ast.FunctionDef,), may_exit_via_except=True)
     self.builder.errors.add(node)
 
   def visit_Assert(self, node):
@@ -891,14 +889,14 @@ class AstToCfg(gast.NodeVisitor):
 
   def visit_Break(self, node):
     self._process_exit_statement(node, (
-        gast.While,
-        gast.For,
+        ast.While,
+        ast.For,
     ))
 
   def visit_Continue(self, node):
     self._process_continue_statement(node, (
-        gast.While,
-        gast.For,
+        ast.While,
+        ast.For,
     ))
 
   def visit_ExceptHandler(self, node):

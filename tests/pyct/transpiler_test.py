@@ -16,7 +16,7 @@
 
 import threading
 
-import gast
+import ast
 
 from malt.pyct import transformer
 from malt.pyct import transpiler
@@ -26,8 +26,8 @@ from tensorflow.python.platform import test
 class FlipSignTransformer(transformer.Base):
 
   def visit_BinOp(self, node):
-    if isinstance(node.op, gast.Add):
-      node.op = gast.Sub()
+    if isinstance(node.op, ast.Add):
+      node.op = ast.Sub()
     return self.generic_visit(node)
 
 

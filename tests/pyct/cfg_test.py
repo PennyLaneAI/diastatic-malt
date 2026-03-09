@@ -14,7 +14,7 @@
 # ==============================================================================
 """Tests for cfg module."""
 
-import gast
+import ast
 
 from malt.pyct import cfg
 from malt.pyct import parser
@@ -1030,7 +1030,7 @@ class AstToCfgTest(test.TestCase):
 
     graphs = self._build_cfg(test_fn)
     for k, v in graphs.items():
-      if isinstance(k, gast.Lambda):
+      if isinstance(k, ast.Lambda):
         lam_graph = v
       else:
         fn_graph = v
@@ -1059,7 +1059,7 @@ class AstToCfgTest(test.TestCase):
 
     graphs = self._build_cfg(test_fn)
     for k, v in graphs.items():
-      if isinstance(k, gast.Lambda):
+      if isinstance(k, ast.Lambda):
         lam_graph = v
       else:
         fn_graph = v
@@ -1088,7 +1088,7 @@ class AstToCfgTest(test.TestCase):
 
     graphs = self._build_cfg(test_fn)
     for k, v in graphs.items():
-      if isinstance(k, gast.Lambda):
+      if isinstance(k, ast.Lambda):
         lam_graph = v
       else:
         fn_graph = v
@@ -1118,7 +1118,7 @@ class AstToCfgTest(test.TestCase):
 
     graphs = self._build_cfg(test_fn)
     for k, v in graphs.items():
-      if isinstance(k, gast.Lambda):
+      if isinstance(k, ast.Lambda):
         lam_graph = v
       else:
         fn_graph = v
