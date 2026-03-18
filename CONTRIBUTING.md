@@ -1,7 +1,7 @@
 # How to contribute
 
 We'd love to have your patches and contributions! Here are some guidelines. In general, we follow
-the [PennyLane contributing guidelines](https://github.com/PennyLaneAI/pennylane/blob/master/.github/CONTRIBUTING.md), but have some
+the [PennyLane contributing guidelines](https://github.com/PennyLaneAI/pennylane/blob/main/.github/CONTRIBUTING.md), but have some
 [DiastaticMalt-specific style guidelines](STYLE_GUIDE.md). More details below.
 
 ## Code reviews
